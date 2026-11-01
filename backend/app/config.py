@@ -12,21 +12,16 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
+    llm_enabled: bool = True
     frontend_origin: str = "http://localhost:3000"
-    gdelt_doc_api: str = "https://api.gdeltproject.org/api/v2/doc/doc"
-    marketnewsapi_key: str = ""
-    marketnewsapi_base_url: str = "https://api.marketnewsapi.com/v1"
-    pinecone_api_key: str = ""
-    pinecone_index_name: str = "finsight-filings"
-    pinecone_cloud: str = "aws"
-    pinecone_region: str = "us-east-1"
-    pinecone_embed_model: str = "llama-text-embed-v2"
-    sec_user_agent: str = "FinSightAI/1.0 your-email@example.com"
+    sec_user_agent: str = "FinSightAI/2.0 your-email@example.com"
     sec_timeout_seconds: float = 30
-    gdelt_timeout_seconds: float = 20
+    company_directory_cache_seconds: int = 86400
+    web_search_timeout_seconds: float = 12
     market_data_timeout_seconds: float = 30
     llm_timeout_seconds: float = 60
     research_timeout_seconds: float = 90
+    chat_history_messages: int = 4
 
 
 @lru_cache

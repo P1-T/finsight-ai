@@ -6,7 +6,6 @@ from typing import Protocol
 
 import pandas as pd
 
-from app.api.schemas import Ticker
 from app.config import Settings, get_settings
 from app.constants import MARKET_HISTORY_PERIOD
 from app.utils.errors import ProviderError
@@ -14,13 +13,13 @@ from app.utils.errors import ProviderError
 
 @dataclass(frozen=True)
 class MarketHistory:
-    ticker: Ticker
+    ticker: str
     frame: pd.DataFrame
     as_of_date: date
 
 
 class MarketDataProvider(Protocol):
-    def fetch(self, ticker: Ticker, period: str = MARKET_HISTORY_PERIOD) -> MarketHistory: ...
+    def fetch(self, ticker: str, period: str = MARKET_HISTORY_PERIOD) -> MarketHistory: ...
 
 
 def _flatten_columns(frame: pd.DataFrame) -> pd.DataFrame:
@@ -59,14 +58,16 @@ class YFinanceMarketDataProvider:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
 
-    def fetch(self, ticker: Ticker, period: str = MARKET_HISTORY_PERIOD) -> MarketHistory:
+    def fetch(self, ticker: str, period: str = MARKET_HISTORY_PERIOD) -> MarketHistory:
         try:
             import yfinance as yf
         except ImportError as exc:
             raise ProviderError("Market data library is not installed.") from exc
 
         try:
-            history = yf.Ticker(ticker.value).history(
+            # Yahoo uses hyphens for several share-class symbols (e.g. BRK-B).
+            yahoo_symbol = ticker.replace(".", "-")
+            history = yf.Ticker(yahoo_symbol).history(
                 period=period,
                 interval="1d",
                 auto_adjust=False,

@@ -1,75 +1,417 @@
-from datetime import date, datetime
-from enum import Enum
-from typing import Literal
-from urllib.parse import urlparse
+from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated, Literal, Union
 
-
-class Ticker(str, Enum):
-    AAPL = "AAPL"
-    NVDA = "NVDA"
-    MSFT = "MSFT"
-
-
-SUPPORTED_STOCKS: dict[Ticker, str] = {
-    Ticker.AAPL: "Apple Inc.",
-    Ticker.NVDA: "NVIDIA Corporation",
-    Ticker.MSFT: "Microsoft Corporation",
-}
-
-AgentStatus = Literal["succeeded", "failed", "no_evidence"]
-SentimentLabel = Literal["positive", "neutral", "negative", "mixed"]
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 
 class HealthResponse(BaseModel):
     status: Literal["ok"] = "ok"
 
 
-class StockInfo(BaseModel):
-    ticker: Ticker
+class ChatHistoryTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1, max_length=1200)
+
+
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(min_length=1, max_length=1200)
+    history: list[ChatHistoryTurn] = Field(default_factory=list, max_length=8)
+
+    @field_validator("prompt")
+    @classmethod
+    def non_blank_prompt(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Prompt must not be blank.")
+        return value.strip()
+
+
+CompanyQuery = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+MetricName = Literal[
+    "latest_close",
+    "daily_pct_change",
+    "return_5d",
+    "return_20d",
+    "sma20",
+    "sma50",
+    "rsi14",
+    "volume_vs_average",
+    "volatility_note",
+]
+Period = Literal["1mo", "3mo", "6mo", "1y"]
+Recency = Literal["day", "week", "month", "year"]
+ResponseTemplate = Literal[
+    "company_analysis",
+    "stock_comparison",
+    "news_analysis",
+    "technical_analysis",
+    "research_answer",
+]
+VisualComponentType = Literal[
+    "company_header",
+    "metric_grid",
+    "price_chart",
+    "fundamental_cards",
+    "scenario_cards",
+    "news_timeline",
+    "comparison_table",
+    "takeaways",
+    "answer_card",
+]
+
+
+class MarketDataAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    period: Period = "6mo"
+    metrics: list[MetricName] = Field(default_factory=lambda: ["latest_close", "daily_pct_change", "return_5d", "return_20d"], max_length=9)
+
+
+class SearchAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=3, max_length=500)
+    result_limit: int = Field(default=5, ge=1, le=5)
+    recency: Recency = "week"
+
+
+class ResearchPlan(BaseModel):
+    """Strict first-pass Claude response that selects tools and a response template."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    intent: Literal["general", "company_research", "market_data", "news", "comparison", "educational", "other"]
+    response_template: ResponseTemplate = "research_answer"
+    companies: list[CompanyQuery] = Field(default_factory=list, max_length=6)
+    market_data: MarketDataAction | None = None
+    web_search: list[SearchAction] = Field(default_factory=list, max_length=2)
+    news_search: list[SearchAction] = Field(default_factory=list, max_length=2)
+    visual_components: list[VisualComponentType] = Field(default_factory=list, max_length=9)
+    clarification_question: str | None = Field(default=None, max_length=300)
+    unsupported_data_needs: list[str] = Field(default_factory=list, max_length=6)
+
+
+class EvidenceClaim(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=120)
+    detail: str = Field(min_length=1, max_length=700)
+    source_ids: list[str] = Field(default_factory=list, max_length=8)
+
+
+class CompanyInsight(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ticker: str = Field(min_length=1, max_length=15)
+    summary: str = Field(min_length=1, max_length=500)
+    source_ids: list[str] = Field(default_factory=list, max_length=8)
+
+
+class SentimentInsight(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ticker: str = Field(min_length=1, max_length=15)
+    sentiment: Literal["positive", "neutral", "negative", "mixed"]
+    rationale: str = Field(min_length=1, max_length=500)
+    source_ids: list[str] = Field(min_length=1, max_length=8)
+
+
+class CompanyAnalysisNarrative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=600)
+    source_ids: list[str] = Field(default_factory=list, max_length=15)
+    positive_drivers: list[EvidenceClaim] = Field(default_factory=list, max_length=4)
+    risks: list[EvidenceClaim] = Field(default_factory=list, max_length=4)
+
+
+class StockComparisonNarrative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=1200)
+    source_ids: list[str] = Field(default_factory=list, max_length=15)
+    company_views: list[CompanyInsight] = Field(default_factory=list, max_length=6)
+    comparison_points: list[EvidenceClaim] = Field(default_factory=list, max_length=6)
+
+
+class NewsAnalysisNarrative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=1200)
+    source_ids: list[str] = Field(default_factory=list, max_length=15)
+    company_sentiment: list[SentimentInsight] = Field(default_factory=list, max_length=6)
+
+
+class TechnicalAnalysisNarrative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=1200)
+    source_ids: list[str] = Field(default_factory=list, max_length=15)
+    observations: list[EvidenceClaim] = Field(default_factory=list, max_length=6)
+
+
+class ResearchAnswerNarrative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    answer: str = Field(min_length=1, max_length=4000)
+    source_ids: list[str] = Field(default_factory=list, max_length=15)
+
+
+class ClarificationNarrative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question: str = Field(min_length=1, max_length=1000)
+
+
+class CompanyIdentity(BaseModel):
+    ticker: str
     name: str
+    exchange: str
 
 
-class StocksResponse(BaseModel):
-    stocks: list[StockInfo]
+class CompanySearchResponse(BaseModel):
+    companies: list[CompanyIdentity] = Field(default_factory=list)
 
 
-class ResearchRequest(BaseModel):
-    ticker: Ticker
+class MarketMetric(BaseModel):
+    key: MetricName
+    value: float | str
+    unit: Literal["usd", "percent", "index", "text"]
+
+
+class SourceReference(BaseModel):
+    id: str
+    title: str
+    provider: str
+    url: str | None = None
+    published_at: str | None = None
+    company_tickers: list[str] = Field(default_factory=list)
+
+
+class PricePoint(BaseModel):
+    date: str
+    close: float
+
+
+class MarketSnapshot(BaseModel):
+    ticker: str
+    as_of_date: str
+    period: Period
+    metrics: list[MarketMetric]
+    source_id: str
+    price_series: list[PricePoint] = Field(default_factory=list)
+
+
+class DataProvenance(BaseModel):
+    kind: Literal["live", "illustrative", "mixed", "unavailable"]
+    label: str
+    as_of: str | None = None
+
+
+class CompanyHeaderBlock(BaseModel):
+    type: Literal["company_header"]
+    company: CompanyIdentity
+    description: str
+    provenance: DataProvenance
+
+
+class VisualMetric(BaseModel):
+    label: str
+    value: str
+    detail: str | None = None
+
+
+class MetricGridBlock(BaseModel):
+    type: Literal["metric_grid"]
+    title: str
+    metrics: list[VisualMetric]
+    provenance: DataProvenance
+
+
+class PriceChartBlock(BaseModel):
+    type: Literal["price_chart"]
+    title: str
+    points: list[PricePoint]
+    provenance: DataProvenance
+
+
+class FundamentalMetric(BaseModel):
+    label: str
+    value: str
+    detail: str
+
+
+class FundamentalCardsBlock(BaseModel):
+    type: Literal["fundamental_cards"]
+    title: str
+    metrics: list[FundamentalMetric]
+    provenance: DataProvenance
+
+
+class ScenarioPoint(BaseModel):
+    title: str
+    detail: str
+    provenance: DataProvenance
+    source_ids: list[str] = Field(default_factory=list)
+
+
+class ScenarioCardsBlock(BaseModel):
+    type: Literal["scenario_cards"]
+    scenario: Literal["bull", "bear"]
+    title: str
+    points: list[ScenarioPoint] = Field(min_length=4, max_length=4)
+
+
+class TimelineItem(BaseModel):
+    title: str
+    detail: str
+    date: str | None = None
+    url: str | None = None
+    provenance: DataProvenance
+
+
+class NewsTimelineBlock(BaseModel):
+    type: Literal["news_timeline"]
+    title: str
+    items: list[TimelineItem]
+
+
+class ComparisonRow(BaseModel):
+    ticker: str
+    name: str
+    latest_close: str
+    daily_change: str
+    period_return: str
+    revenue_growth: str
+    margin: str
+
+
+class ComparisonTableBlock(BaseModel):
+    type: Literal["comparison_table"]
+    title: str
+    rows: list[ComparisonRow]
+    provenance: DataProvenance
+
+
+class TakeawaysBlock(BaseModel):
+    type: Literal["takeaways"]
+    title: str
+    items: list[str]
+
+
+class AnswerCardBlock(BaseModel):
+    type: Literal["answer_card"]
+    title: str
+    body: str
+
+
+VisualBlock = Annotated[
+    Union[
+        CompanyHeaderBlock,
+        MetricGridBlock,
+        PriceChartBlock,
+        FundamentalCardsBlock,
+        ScenarioCardsBlock,
+        NewsTimelineBlock,
+        ComparisonTableBlock,
+        TakeawaysBlock,
+        AnswerCardBlock,
+    ],
+    Field(discriminator="type"),
+]
+
+
+class VisualResearchResponse(BaseModel):
+    schema_version: Literal[2] = 2
+    template: ResponseTemplate | Literal["clarification"]
+    title: str
+    summary: str
+    blocks: list[VisualBlock] = Field(default_factory=list, max_length=12)
+    sources: list[SourceReference] = Field(default_factory=list)
+    unresolved_company_query: str | None = None
+    company_suggestions: list[CompanyIdentity] = Field(default_factory=list, max_length=8)
+    generated_by: Literal["claude", "fallback"]
 
 
 class NewsArticle(BaseModel):
+    source_id: str
     title: str
     source: str | None = None
-    published_at: datetime | None = None
+    published_at: str | None = None
     url: str
-
-    @field_validator("url")
-    @classmethod
-    def validate_original_http_url(cls, value: str) -> str:
-        parsed = urlparse(value)
-        if (
-            parsed.scheme.lower() not in {"http", "https"}
-            or not parsed.hostname
-            or any(character.isspace() for character in value)
-        ):
-            raise ValueError("Article URL must be an absolute HTTP or HTTPS URL.")
-        return value
+    snippet: str | None = None
+    company_tickers: list[str] = Field(default_factory=list)
 
 
-class NewsAnalysis(BaseModel):
-    status: AgentStatus
-    error: str | None = None
-    overall_sentiment: SentimentLabel | None = None
-    confidence: str | None = None
-    positive_catalysts: list[str] = Field(default_factory=list)
-    negative_catalysts: list[str] = Field(default_factory=list)
-    major_developments: list[str] = Field(default_factory=list)
-    investor_relevance: str | None = None
-    evidence_limitations: str | None = None
-    lookback: str | None = None
-    articles: list[NewsArticle] = Field(default_factory=list)
+class NewsCoverage(BaseModel):
+    ticker: str
+    relevant_result_count: int = Field(ge=0)
+
+
+class ResponseBase(BaseModel):
+    schema_version: Literal[1] = 1
+    title: str
+    companies: list[CompanyIdentity] = Field(default_factory=list)
+    sources: list[SourceReference] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+
+class CompanyAnalysisResponse(ResponseBase):
+    template: Literal["company_analysis"]
+    company: CompanyIdentity
+    market_snapshot: MarketSnapshot | None = None
+    news_articles: list[NewsArticle] = Field(default_factory=list)
+    news_coverage: list[NewsCoverage] = Field(default_factory=list)
+    narrative: CompanyAnalysisNarrative
+
+
+class StockComparisonResponse(ResponseBase):
+    template: Literal["stock_comparison"]
+    market_snapshots: list[MarketSnapshot] = Field(default_factory=list)
+    news_articles: list[NewsArticle] = Field(default_factory=list)
+    news_coverage: list[NewsCoverage] = Field(default_factory=list)
+    narrative: StockComparisonNarrative
+
+
+class NewsAnalysisResponse(ResponseBase):
+    template: Literal["news_analysis"]
+    news_articles: list[NewsArticle] = Field(default_factory=list)
+    news_coverage: list[NewsCoverage] = Field(default_factory=list)
+    narrative: NewsAnalysisNarrative
+
+
+class TechnicalAnalysisResponse(ResponseBase):
+    template: Literal["technical_analysis"]
+    market_snapshots: list[MarketSnapshot] = Field(default_factory=list)
+    narrative: TechnicalAnalysisNarrative
+
+
+class ResearchAnswerResponse(ResponseBase):
+    template: Literal["research_answer"]
+    narrative: ResearchAnswerNarrative
+
+
+class ClarificationResponse(ResponseBase):
+    template: Literal["clarification"]
+    narrative: ClarificationNarrative
+    unresolved_company_query: str | None = None
+    company_suggestions: list[CompanyIdentity] = Field(default_factory=list, max_length=8)
+
+
+LegacyResearchResponse = Annotated[
+    Union[
+        CompanyAnalysisResponse,
+        StockComparisonResponse,
+        NewsAnalysisResponse,
+        TechnicalAnalysisResponse,
+        ResearchAnswerResponse,
+        ClarificationResponse,
+    ],
+    Field(discriminator="template"),
+]
+ResearchResponse = Union[VisualResearchResponse, LegacyResearchResponse]
 
 
 class MetricValue(BaseModel):
@@ -77,101 +419,16 @@ class MetricValue(BaseModel):
     unavailable_reason: str | None = None
 
 
-class TechnicalAnalysis(BaseModel):
-    status: AgentStatus
-    error: str | None = None
-    as_of_date: date | None = None
-    latest_close: MetricValue = Field(default_factory=MetricValue)
-    daily_pct_change: MetricValue = Field(default_factory=MetricValue)
-    return_5d: MetricValue = Field(default_factory=MetricValue)
-    return_20d: MetricValue = Field(default_factory=MetricValue)
-    sma20: MetricValue = Field(default_factory=MetricValue)
-    sma50: MetricValue = Field(default_factory=MetricValue)
-    rsi14: MetricValue = Field(default_factory=MetricValue)
-    volume_vs_average: str | None = None
-    volatility_note: str | None = None
-    short_term_trend: str | None = None
-    medium_term_trend: str | None = None
-    momentum: str | None = None
-    caveats: list[str] = Field(default_factory=list)
+ToolName = Literal["market_data", "web_search", "news_search"]
+ToolStatus = Literal["running", "succeeded", "failed", "no_evidence"]
 
 
-class FundamentalMetric(BaseModel):
-    value: float | None = None
-    unit: str | None = None
-    fiscal_year: int | None = None
-    unavailable_reason: str | None = None
+class ToolStatusEvent(BaseModel):
+    tool: ToolName
+    status: ToolStatus
+    detail: str | None = None
 
 
-class FilingCitation(BaseModel):
-    section: str
-    excerpt: str
-    url: str
-
-
-class FundamentalFinding(BaseModel):
-    topic: str
-    finding: str
-    citation_urls: list[str] = Field(default_factory=list)
-
-
-class FundamentalAnalysis(BaseModel):
-    status: AgentStatus
-    error: str | None = None
-    filing_date: date | None = None
-    fiscal_year: int | None = None
-    filing_url: str | None = None
-    revenue: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    revenue_yoy_growth_pct: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    operating_margin_pct: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    net_margin_pct: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    operating_cash_flow: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    capital_expenditures: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    free_cash_flow: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    cash_and_equivalents: FundamentalMetric = Field(default_factory=FundamentalMetric)
-    overview: str | None = None
-    business_findings: list[FundamentalFinding] = Field(default_factory=list)
-    key_risks: list[FundamentalFinding] = Field(default_factory=list)
-    limitations: list[str] = Field(default_factory=list)
-    citations: list[FilingCitation] = Field(default_factory=list)
-
-
-class ChartPoint(BaseModel):
-    time: date
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
-
-
-class OverlayPoint(BaseModel):
-    time: date
-    value: float
-
-
-class ChartSeries(BaseModel):
-    candles: list[ChartPoint] = Field(default_factory=list)
-    sma20: list[OverlayPoint] = Field(default_factory=list)
-    sma50: list[OverlayPoint] = Field(default_factory=list)
-
-
-class ResearchSummary(BaseModel):
-    news_perspective: str
-    technical_perspective: str
-    fundamental_perspective: str = "Fundamental perspective unavailable."
-    agreement: str
-    disagreement: str
-    missing_information: str
-
-
-class ResearchResponse(BaseModel):
-    ticker: Ticker
-    company_name: str
-    generated_at: datetime
-    news: NewsAnalysis
-    technical: TechnicalAnalysis
-    fundamental: FundamentalAnalysis = Field(default_factory=lambda: FundamentalAnalysis(status="no_evidence"))
-    chart: ChartSeries
-    summary: ResearchSummary
-    disclaimer: str
+class ResearchStageEvent(BaseModel):
+    stage: Literal["planning", "research", "synthesis"]
+    label: str

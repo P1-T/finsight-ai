@@ -1,0 +1,16 @@
+{
+  "AAPL": {"profile": "consumer_hardware", "revenue_bn": 390.0, "growth_pct": 8.2, "gross_margin_pct": 45.1, "operating_margin_pct": 31.4, "fcf_margin_pct": 24.3, "cash_bn": 68.0, "debt_bn": 102.0, "price_start": 188.0, "price_end": 224.0},
+  "MSFT": {"profile": "cloud_software", "revenue_bn": 286.0, "growth_pct": 15.8, "gross_margin_pct": 68.2, "operating_margin_pct": 44.7, "fcf_margin_pct": 31.4, "cash_bn": 82.0, "debt_bn": 78.0, "price_start": 410.0, "price_end": 492.0},
+  "NVDA": {"profile": "semiconductors", "revenue_bn": 164.0, "growth_pct": 52.0, "gross_margin_pct": 74.8, "operating_margin_pct": 60.4, "fcf_margin_pct": 49.0, "cash_bn": 51.0, "debt_bn": 11.0, "price_start": 116.0, "price_end": 188.0},
+  "AMZN": {"profile": "commerce_cloud", "revenue_bn": 688.0, "growth_pct": 12.4, "gross_margin_pct": 48.3, "operating_margin_pct": 11.2, "fcf_margin_pct": 8.8, "cash_bn": 94.0, "debt_bn": 158.0, "price_start": 172.0, "price_end": 205.0},
+  "GOOGL": {"profile": "digital_platforms", "revenue_bn": 352.0, "growth_pct": 13.6, "gross_margin_pct": 57.4, "operating_margin_pct": 31.8, "fcf_margin_pct": 25.9, "cash_bn": 96.0, "debt_bn": 24.0, "price_start": 162.0, "price_end": 194.0},
+  "META": {"profile": "digital_platforms", "revenue_bn": 166.0, "growth_pct": 18.7, "gross_margin_pct": 80.9, "operating_margin_pct": 42.2, "fcf_margin_pct": 36.2, "cash_bn": 74.0, "debt_bn": 36.0, "price_start": 512.0, "price_end": 582.0},
+  "TSLA": {"profile": "mobility", "revenue_bn": 101.0, "growth_pct": 9.0, "gross_margin_pct": 19.2, "operating_margin_pct": 8.2, "fcf_margin_pct": 4.9, "cash_bn": 29.0, "debt_bn": 7.0, "price_start": 248.0, "price_end": 284.0},
+  "AMD": {"profile": "semiconductors", "revenue_bn": 41.0, "growth_pct": 19.0, "gross_margin_pct": 50.1, "operating_margin_pct": 14.2, "fcf_margin_pct": 10.8, "cash_bn": 7.0, "debt_bn": 4.0, "price_start": 142.0, "price_end": 168.0},
+  "ORCL": {"profile": "cloud_software", "revenue_bn": 56.0, "growth_pct": 12.1, "gross_margin_pct": 71.2, "operating_margin_pct": 30.4, "fcf_margin_pct": 24.0, "cash_bn": 11.0, "debt_bn": 96.0, "price_start": 142.0, "price_end": 174.0},
+  "CRM": {"profile": "cloud_software", "revenue_bn": 40.0, "growth_pct": 10.2, "gross_margin_pct": 77.1, "operating_margin_pct": 20.4, "fcf_margin_pct": 25.0, "cash_bn": 14.0, "debt_bn": 12.0, "price_start": 252.0, "price_end": 288.0},
+  "ADBE": {"profile": "cloud_software", "revenue_bn": 24.0, "growth_pct": 10.8, "gross_margin_pct": 88.0, "operating_margin_pct": 35.1, "fcf_margin_pct": 33.0, "cash_bn": 7.0, "debt_bn": 5.0, "price_start": 438.0, "price_end": 506.0},
+  "CRWD": {"profile": "cybersecurity", "revenue_bn": 4.2, "growth_pct": 25.3, "gross_margin_pct": 75.0, "operating_margin_pct": 4.4, "fcf_margin_pct": 22.0, "cash_bn": 4.1, "debt_bn": 1.6, "price_start": 304.0, "price_end": 362.0},
+  "AVGO": {"profile": "semiconductors", "revenue_bn": 54.0, "growth_pct": 29.0, "gross_margin_pct": 69.0, "operating_margin_pct": 39.0, "fcf_margin_pct": 35.0, "cash_bn": 14.0, "debt_bn": 68.0, "price_start": 142.0, "price_end": 198.0},
+  "PLTR": {"profile": "enterprise_software", "revenue_bn": 4.0, "growth_pct": 25.0, "gross_margin_pct": 80.0, "operating_margin_pct": 15.0, "fcf_margin_pct": 22.0, "cash_bn": 5.0, "debt_bn": 0.5, "price_start": 62.0, "price_end": 104.0}
+}

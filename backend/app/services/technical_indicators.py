@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
-
 import pandas as pd
 
-from app.api.schemas import ChartPoint, ChartSeries, MetricValue, OverlayPoint
-from app.constants import CHART_TRADING_DAYS
+from app.api.schemas import MetricValue
 
 
 def _last_valid(series: pd.Series) -> float | None:
@@ -104,43 +101,6 @@ def volatility_note(close: pd.Series) -> str:
         f"20-session standard deviation of daily returns is {float(stdev) * 100:.2f}%. "
         "This is a historical dispersion statistic, not a forecast."
     )
-
-
-def sma_series(close: pd.Series, window: int) -> pd.Series:
-    return close.rolling(window=window, min_periods=window).mean()
-
-
-def build_chart_series(frame: pd.DataFrame, trading_days: int = CHART_TRADING_DAYS) -> ChartSeries:
-    window = frame.tail(trading_days)
-    sma20 = sma_series(frame["Close"], 20).reindex(window.index)
-    sma50 = sma_series(frame["Close"], 50).reindex(window.index)
-
-    candles: list[ChartPoint] = []
-    sma20_points: list[OverlayPoint] = []
-    sma50_points: list[OverlayPoint] = []
-
-    for idx, row in window.iterrows():
-        session: date = idx.date() if hasattr(idx, "date") else pd.Timestamp(idx).date()
-        if pd.isna(row["Open"]) or pd.isna(row["High"]) or pd.isna(row["Low"]) or pd.isna(row["Close"]):
-            continue
-        candles.append(
-            ChartPoint(
-                time=session,
-                open=float(row["Open"]),
-                high=float(row["High"]),
-                low=float(row["Low"]),
-                close=float(row["Close"]),
-                volume=float(row["Volume"]) if not pd.isna(row["Volume"]) else 0.0,
-            )
-        )
-        sma20_val = sma20.loc[idx]
-        sma50_val = sma50.loc[idx]
-        if not pd.isna(sma20_val):
-            sma20_points.append(OverlayPoint(time=session, value=float(sma20_val)))
-        if not pd.isna(sma50_val):
-            sma50_points.append(OverlayPoint(time=session, value=float(sma50_val)))
-
-    return ChartSeries(candles=candles, sma20=sma20_points, sma50=sma50_points)
 
 
 def compute_metrics(frame: pd.DataFrame) -> dict[str, MetricValue | str]:

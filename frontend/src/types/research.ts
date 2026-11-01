@@ -1,128 +1,154 @@
-export type Ticker = "AAPL" | "NVDA" | "MSFT";
-export type AgentStatus = "succeeded" | "failed" | "no_evidence";
-export type SentimentLabel = "positive" | "neutral" | "negative" | "mixed";
+import type { UIMessage } from "ai";
 
-export type StockInfo = {
-  ticker: Ticker;
-  name: string;
+export type ResearchStage = { stage: "planning" | "research" | "synthesis"; label: string };
+export type ResearchTool = "market_data" | "web_search" | "news_search";
+export type ResearchToolStatus = {
+  tool: ResearchTool;
+  status: "running" | "succeeded" | "failed" | "no_evidence";
+  detail?: string | null;
 };
+export type ChatHistoryTurn = { role: "user" | "assistant"; text: string };
 
-export type StocksResponse = {
-  stocks: StockInfo[];
-};
-
-export type NewsArticle = {
+export type CompanyIdentity = { ticker: string; name: string; exchange: string };
+export type CompanySearchResponse = { companies: CompanyIdentity[] };
+export type SourceReference = {
+  id: string;
   title: string;
-  source: string | null;
-  published_at: string | null;
+  provider: string;
+  url?: string | null;
+  published_at?: string | null;
+  company_tickers: string[];
+};
+export type NewsArticle = {
+  source_id: string;
+  title: string;
+  source?: string | null;
+  published_at?: string | null;
   url: string;
+  snippet?: string | null;
+  company_tickers: string[];
+};
+export type NewsCoverage = { ticker: string; relevant_result_count: number };
+export type MetricKey =
+  | "latest_close"
+  | "daily_pct_change"
+  | "return_5d"
+  | "return_20d"
+  | "sma20"
+  | "sma50"
+  | "rsi14"
+  | "volume_vs_average"
+  | "volatility_note";
+export type MarketMetric = { key: MetricKey; value: number | string; unit: "usd" | "percent" | "index" | "text" };
+export type PricePoint = { date: string; close: number };
+export type MarketSnapshot = { ticker: string; as_of_date: string; period: "1mo" | "3mo" | "6mo" | "1y"; metrics: MarketMetric[]; source_id: string; price_series?: PricePoint[] };
+export type EvidenceClaim = { title: string; detail: string; source_ids: string[] };
+export type CompanyInsight = { ticker: string; summary: string; source_ids: string[] };
+export type SentimentInsight = {
+  ticker: string;
+  sentiment: "positive" | "neutral" | "negative" | "mixed";
+  rationale: string;
+  source_ids: string[];
 };
 
-export type NewsAnalysis = {
-  status: AgentStatus;
-  error: string | null;
-  overall_sentiment: SentimentLabel | null;
-  confidence: string | null;
-  positive_catalysts: string[];
-  negative_catalysts: string[];
-  major_developments: string[];
-  investor_relevance: string | null;
-  evidence_limitations: string | null;
-  lookback: string | null;
-  articles: NewsArticle[];
-};
-
-export type MetricValue = {
-  value: number | null;
-  unavailable_reason: string | null;
-};
-
-export type TechnicalAnalysis = {
-  status: AgentStatus;
-  error: string | null;
-  as_of_date: string | null;
-  latest_close: MetricValue;
-  daily_pct_change: MetricValue;
-  return_5d: MetricValue;
-  return_20d: MetricValue;
-  sma20: MetricValue;
-  sma50: MetricValue;
-  rsi14: MetricValue;
-  volume_vs_average: string | null;
-  volatility_note: string | null;
-  short_term_trend: string | null;
-  medium_term_trend: string | null;
-  momentum: string | null;
-  caveats: string[];
-};
-
-export type FundamentalMetric = {
-  value: number | null;
-  unit: string | null;
-  fiscal_year: number | null;
-  unavailable_reason: string | null;
-};
-
-export type FilingCitation = { section: string; excerpt: string; url: string };
-export type FundamentalFinding = { topic: string; finding: string; citation_urls: string[] };
-export type FundamentalAnalysis = {
-  status: AgentStatus;
-  error: string | null;
-  filing_date: string | null;
-  fiscal_year: number | null;
-  filing_url: string | null;
-  revenue: FundamentalMetric;
-  revenue_yoy_growth_pct: FundamentalMetric;
-  operating_margin_pct: FundamentalMetric;
-  net_margin_pct: FundamentalMetric;
-  operating_cash_flow: FundamentalMetric;
-  capital_expenditures: FundamentalMetric;
-  free_cash_flow: FundamentalMetric;
-  cash_and_equivalents: FundamentalMetric;
-  overview: string | null;
-  business_findings: FundamentalFinding[];
-  key_risks: FundamentalFinding[];
+type ResponseBase = {
+  schema_version: 1;
+  title: string;
+  companies: CompanyIdentity[];
+  sources: SourceReference[];
   limitations: string[];
-  citations: FilingCitation[];
 };
 
-export type ChartPoint = {
-  time: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+export type CompanyAnalysisResponse = ResponseBase & {
+  template: "company_analysis";
+  company: CompanyIdentity;
+  market_snapshot?: MarketSnapshot | null;
+  news_articles: NewsArticle[];
+  news_coverage: NewsCoverage[];
+  narrative: {
+    summary: string;
+    source_ids: string[];
+    positive_drivers: EvidenceClaim[];
+    risks: EvidenceClaim[];
+  };
 };
 
-export type OverlayPoint = {
-  time: string;
-  value: number;
+export type StockComparisonResponse = ResponseBase & {
+  template: "stock_comparison";
+  market_snapshots: MarketSnapshot[];
+  news_articles: NewsArticle[];
+  news_coverage: NewsCoverage[];
+  narrative: { summary: string; source_ids: string[]; company_views: CompanyInsight[]; comparison_points: EvidenceClaim[] };
 };
 
-export type ChartSeries = {
-  candles: ChartPoint[];
-  sma20: OverlayPoint[];
-  sma50: OverlayPoint[];
+export type NewsAnalysisResponse = ResponseBase & {
+  template: "news_analysis";
+  news_articles: NewsArticle[];
+  news_coverage: NewsCoverage[];
+  narrative: { summary: string; source_ids: string[]; company_sentiment: SentimentInsight[] };
 };
 
-export type ResearchSummaryModel = {
-  news_perspective: string;
-  technical_perspective: string;
-  fundamental_perspective: string;
-  agreement: string;
-  disagreement: string;
-  missing_information: string;
+export type TechnicalAnalysisResponse = ResponseBase & {
+  template: "technical_analysis";
+  market_snapshots: MarketSnapshot[];
+  narrative: { summary: string; source_ids: string[]; observations: EvidenceClaim[] };
 };
 
-export type ResearchResponse = {
-  ticker: Ticker;
-  company_name: string;
-  generated_at: string;
-  news: NewsAnalysis;
-  technical: TechnicalAnalysis;
-  fundamental: FundamentalAnalysis;
-  chart: ChartSeries;
-  summary: ResearchSummaryModel;
-  disclaimer: string;
+export type ResearchAnswerResponse = ResponseBase & {
+  template: "research_answer";
+  narrative: { answer: string; source_ids: string[] };
+};
+
+export type ClarificationResponse = ResponseBase & {
+  template: "clarification";
+  narrative: { question: string };
+  unresolved_company_query?: string | null;
+  company_suggestions?: CompanyIdentity[];
+};
+
+export type DataProvenance = { kind: "live" | "illustrative" | "mixed" | "unavailable"; label: string; as_of?: string | null };
+export type VisualMetric = { label: string; value: string; detail?: string | null };
+export type VisualBlock =
+  | { type: "company_header"; company: CompanyIdentity; description: string; provenance: DataProvenance }
+  | { type: "metric_grid"; title: string; metrics: VisualMetric[]; provenance: DataProvenance }
+  | { type: "price_chart"; title: string; points: PricePoint[]; provenance: DataProvenance }
+  | { type: "fundamental_cards"; title: string; metrics: { label: string; value: string; detail: string }[]; provenance: DataProvenance }
+  | { type: "scenario_cards"; scenario: "bull" | "bear"; title: string; points: { title: string; detail: string; provenance: DataProvenance; source_ids: string[] }[] }
+  | { type: "news_timeline"; title: string; items: { title: string; detail: string; date?: string | null; url?: string | null; provenance: DataProvenance }[] }
+  | { type: "comparison_table"; title: string; rows: { ticker: string; name: string; latest_close: string; daily_change: string; period_return: string; revenue_growth: string; margin: string }[]; provenance: DataProvenance }
+  | { type: "takeaways"; title: string; items: string[] }
+  | { type: "answer_card"; title: string; body: string };
+
+export type VisualResearchResponse = {
+  schema_version: 2;
+  template: "company_analysis" | "stock_comparison" | "news_analysis" | "technical_analysis" | "research_answer" | "clarification";
+  title: string;
+  summary: string;
+  blocks: VisualBlock[];
+  sources: SourceReference[];
+  unresolved_company_query?: string | null;
+  company_suggestions?: CompanyIdentity[];
+  generated_by: "claude" | "fallback";
+};
+
+export type LegacyResearchResponse =
+  | CompanyAnalysisResponse
+  | StockComparisonResponse
+  | NewsAnalysisResponse
+  | TechnicalAnalysisResponse
+  | ResearchAnswerResponse
+  | ClarificationResponse;
+export type ResearchResponse = VisualResearchResponse | LegacyResearchResponse;
+
+export type ChatData = {
+  "research-stage": ResearchStage;
+  "tool-status": ResearchToolStatus;
+  "research-response": ResearchResponse;
+};
+export type ResearchChatMessage = UIMessage<Record<string, never>, ChatData>;
+export type SavedConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ResearchChatMessage[];
 };

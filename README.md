@@ -1,41 +1,64 @@
 # FinSight AI
 
-FinSight AI is a private portfolio demonstration of an AI-assisted equity research dashboard. It covers AAPL, NVDA, and MSFT with three specialist analyses: recent headline sentiment, technical interpretation of historical OHLCV, and a retrieval-grounded fundamental summary of the latest SEC 10-K. It is an educational research tool, not financial advice or a trading product.
+FinSight AI is a visual, open-ended AI chat demo. Users can ask general finance questions, research a listed company, or compare companies. Claude can choose the response layout from an allowlisted set of React components; the backend fills those components with available provider data or clearly labeled synthetic demo values. Chat history stays in the browser. This is a portfolio demonstration, not an investment research or trading product.
 
-## Architecture
+## V3 request flow
 
 ```text
-Next.js App Router dashboard
-        │ REST /api/research
-        ▼
-      FastAPI ── Pydantic request / response validation
-        │
-        ▼
-      LangGraph fan-out
-       ├── News agent ── MarketNewsAPI ── Claude structured output
-       ├── Technical agent ── yfinance ── pandas indicators ── Claude structured output
-       └── Fundamental agent ── Pinecone retrieval ── SEC 10-K + XBRL facts ── Claude structured output
-        │
-        ▼
-Python summary service combines results; no synthesis LLM call
+Next.js chat + browser-local history
+                 │ prompt + recent turns (SSE)
+                 ▼
+FastAPI → LangGraph
+                 │
+                 ├─ Claude structured intent, tool, and visual-component plan
+                 ├─ SEC company-directory validation
+                 ├─ Selected tools run concurrently
+                 │    ├─ yfinance historical market data + Python indicators
+                 │    ├─ DDGS web/news search
+                 │    └─ deterministic synthetic fixture fallback
+                 ├─ Claude structured narrative (or local fallback)
+                 ├─ Pydantic visual-response composer
+                 └─ typed blocks streamed to the React component registry
 ```
 
-The dashboard fetches the supported stock list from the API. Research is synchronous; independent LangGraph nodes run concurrently and each agent reports its own status. Partial results are returned when one agent fails. If all agents fail, the API returns the structured report with HTTP 502.
+Each researched prompt uses at most two bounded Claude calls: one tool/layout planning call and one synthesis call. Set `LLM_ENABLED=false` to skip both calls and use deterministic fallback routing and copy. Provider and model failures also fall back gracefully. Tool plans are limited to six companies, two queries per search type, five results per query, and twelve total news/web results. Independent providers run concurrently. Company analysis requests a consistent bundle of price history, market metrics, and recent web/news results; each unavailable area can still render using synthetic fixtures.
+
+The first Claude response follows a strict schema with an intent, company names, bounded provider requests, an ordered visual-component selection, and optional clarification. The server does not execute arbitrary model instructions. It validates company names against the exchange-listed company directory and maps validated entries to market-data symbols. If the plan cannot resolve a company, the workflow asks for clarification rather than silently researching a different company.
+
+The final API response is a versioned list of typed blocks such as `company_header`, `metric_grid`, `price_chart`, `fundamental_cards`, `scenario_cards`, `news_timeline`, `comparison_table`, `takeaways`, and `answer_card`. The React registry maps only these allowlisted block types; Claude never returns JSX, HTML, or executable component code. Numeric market data and chart series are supplied by the backend. Stored company fixtures and deterministic fallback data populate fundamentals and bull/bear scenarios when live data is unavailable; a single disclosure appears at the bottom of the response, after the consolidated sources. Older browser-saved responses continue to render through the legacy template renderer.
+
+The API streams progress, a typed `data-research-response` message part, and a readable text representation for conversation history and fallback accessibility. The schema version allows visual response payloads to evolve without coupling the backend to React implementations.
+
+### Visual response building blocks
+
+- **Company research:** company hero, market metrics, a six-month price chart, fundamental cards, four-point bull and bear case scenarios, and recent coverage.
+- **Company comparison:** a compact comparison table plus per-company price charts; the table carries the key market and fundamental fields.
+- **News or technical questions:** the planner selects focused timeline, metric, chart, and takeaway blocks.
+- **General questions:** a concise answer card.
+
+The fundamental cards currently contain synthetic revenue, growth, margins, free cash flow, cash, and debt fields to demonstrate realistic-looking visual building blocks. They are not fetched company facts. The saved popular-company fixtures live in `backend/app/data/demo_company_fixtures.json`; other symbols receive stable per-ticker fallback values. No dummy URL, article, or source citation is created.
+
+## Sources and limitations
+
+- **Market data:** yfinance daily OHLCV; pandas calculates price returns, moving averages, RSI, volume comparison, and historical volatility. The latest date is the last available provider session, not a live quote. Yahoo Finance credentials are not required. Synthetic price history is used and labeled if retrieval fails.
+- **News and web search:** DDGS DuckDuckGo search; news and web are separate selectable tools over the same free, no-key provider. Results contain titles, metadata, and short snippets, not full article text. DDGS is best-effort and may be throttled or change behavior.
+- **Company resolution:** SEC's public exchange-listed company directory. This supports broad US-exchange coverage, not guaranteed coverage of every symbol by every upstream provider. A ticker may be used internally to call yfinance; users do not select a ticker to establish chat context.
+- **Illustrative financial data:** fundamental figures, fallback price history, and scenario points may be synthetic. They exist to populate the visual demo, not to describe the named company. The interface shows one disclosure after the source list rather than repeating labels on every card.
+- **Model:** `ANTHROPIC_MODEL` selects Claude; `ANTHROPIC_API_KEY` stays on the backend. Claude API usage is billed separately from IDE subscriptions. `LLM_ENABLED=false` disables model calls and uses deterministic demo composition.
+- **Chat history:** saved only in browser `localStorage`; it is not synchronized or stored on the backend.
 
 ## Requirements
 
-- Node.js 20.9 or newer (local project scaffold was created with Node 24)
-- Python 3.13 or 3.14 recommended. Python 3.15 compatibility depends on binary wheel support for pandas and the AI libraries.
-- An Anthropic API key for AI interpretations
-- A free [MarketNewsAPI](https://marketnewsapi.com/) API key for news retrieval
-- A free [Pinecone](https://www.pinecone.io/) account and API key for 10-K retrieval
-- A contact email in `SEC_USER_AGENT` for SEC EDGAR access
+- Node.js 22 or newer
+- Python 3.13 recommended
+- A contact email in `SEC_USER_AGENT` for SEC directory requests
+- An Anthropic API key and separate API billing for Claude-composed responses (optional when `LLM_ENABLED=false`)
 
-The Anthropic key is read only by the backend. Cursor or Claude subscriptions do not automatically provide API access or credits.
+DDGS and yfinance do not require API keys. Provider coverage and availability can vary.
 
-## Local development
+## Run locally
 
-Open two terminals from the repository root.
+Open two PowerShell terminals from the repository root.
 
 ### Backend
 
@@ -46,83 +69,44 @@ py -3.13 -m venv .venv
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
-# Configure ANTHROPIC_API_KEY, MARKETNEWSAPI_KEY, PINECONE_API_KEY, and SEC_USER_AGENT in backend/.env
+# Set ANTHROPIC_API_KEY, ANTHROPIC_MODEL, and SEC_USER_AGENT in backend/.env
 uvicorn app.main:app --reload --port 8000
 ```
 
-The SEC `SEC_USER_AGENT` value must identify the application and include a monitored contact email. Keep all keys in `backend/.env`; never place them in frontend variables.
-
-### Ingest the latest annual reports
-
-Run this once after configuring Pinecone and SEC access (or again when you want to refresh the latest filing):
+If PowerShell blocks activation, call the virtual-environment interpreter directly:
 
 ```powershell
-cd backend
-python -m app.rag.ingest --all
-# Or ingest one supported company:
-python -m app.rag.ingest --ticker NVDA
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
-
-The command finds each company's latest SEC 10-K from the SEC submissions feed, downloads the filing HTML and company facts, extracts Items 1, 1A, 7, and 8, chunks each section with a small overlap, and upserts a compact set of XBRL metrics and section chunks into a ticker-specific Pinecone namespace. It verifies the new accession before removing older filing chunks. If that accession is already present, a rerun skips the embedding/upsert work. No scheduler is installed: rerun the command to refresh each company after a new 10-K is filed. The frontend reports `No evidence` until that ticker has been ingested.
-
-Pinecone's document index performs hosted embedding on upsert and query with `llama-text-embed-v2`; the application does not generate or store vectors itself. Each text chunk is kept around 380 words (conservative relative to the model's input window), with 55 words of overlap. Five focused retrieval searches run per research request. The latest filing is small relative to the free-tier capacity, but plan quotas and hosted-model limits are controlled by Pinecone and may change. Changing the embedding model requires a new index and complete re-ingestion.
-
-If Python 3.13 is not installed, create the environment with an installed supported interpreter (for example `python -m venv .venv`). Then open <http://localhost:8000/docs> for the API schema.
 
 ### Frontend
 
 ```powershell
 cd frontend
-Copy-Item .env.example .env.local
 npm ci
 npm run dev
 ```
 
-Open <http://localhost:3000>. The frontend environment variable sets only the public backend base URL. Never put the Anthropic key in a frontend environment variable.
+Open <http://localhost:3000>. The default backend URL is <http://localhost:8000>. If needed, set `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local`. Never put Claude credentials in frontend environment variables.
 
 ## API
 
-### `GET /api/health`
-
-Returns `{ "status": "ok" }` without exposing configuration.
-
-### `GET /api/stocks`
-
-Returns the three supported tickers and company names.
-
-### `POST /api/research`
-
-Request:
+- `GET /api/health` — safe health status.
+- `POST /api/chat/stream` — Vercel AI SDK UI Message SSE endpoint. Request body:
 
 ```json
-{ "ticker": "AAPL" }
+{
+  "prompt": "Compare recent performance and news for AMD and Google",
+  "history": []
+}
 ```
 
-The response includes a UTC `generated_at`, per-agent status, original article metadata and links, market as-of date, chart candles and SMA overlays, technical metrics, filing facts, filing citation links, deterministic summary, and disclaimer. Unsupported tickers receive a validation error. Agent-specific errors are safe messages; backend logs retain diagnostic details for unexpected workflow failures.
+The server streams planning/research stages and active tool status, followed by a `data-research-response` part with `schema_version: 2`, ordered block payloads, provenance labels, and consolidated sources. The request has no selected-ticker field. Unsupported extra request fields are rejected.
 
-## Agents and data
+When company resolution is ambiguous, the clarification response carries the unresolved name and any candidate matches. The chat then shows a company-name/ticker autocomplete backed by `GET /api/companies/search?q=...`; selecting a match submits the user's original request with the chosen company identified. This picker is absent from ordinary research responses and non-company clarifications.
 
-### News and sentiment
-
-- Queries MarketNewsAPI for the selected stock ticker, stock news and press releases from the last seven calendar days, up to 20 articles. The API key is read from `backend/.env` and never sent to the browser.
-- Normalizes and deduplicates headline metadata and drops non-HTTP(S) URLs.
-- Sends only headline metadata to Claude. The model is instructed not to claim it read the full article.
-- Displays the provider's original article URLs, publisher names, and available timestamps. Missing metadata stays missing.
-- “No evidence” means the provider returned no matching articles; it does not prove no company news exists.
-- The free MarketNewsAPI tier is intended for prototyping and currently allows 100 REST requests per day with a 15-minute delay. Availability and plan limits are controlled by the provider.
-
-### Technical analysis
-
-- Retrieves one year of daily OHLCV history through yfinance with its unadjusted `Close` field; the chart displays roughly the latest six months. Historical provider values can reflect corporate actions such as splits.
-- Calculates daily, five-session, and 20-session returns; SMA20, SMA50, RSI14; latest volume relative to the prior 20-session mean; and 20-session return volatility in Python.
-- Uses completed provider sessions and labels the latest available session date. It is not a live quote.
-- Indicators display as unavailable with a reason when required history is missing.
-
-### Model interpretation
-
-Each specialist makes one structured Claude call. Pydantic validates the model output, and Python combines the validated results without a synthesis call. Filing citations are mapped back to retrieved Pinecone chunk IDs and the original SEC filing URL; model-generated URLs are not accepted. Fundamental metrics are derived in Python from SEC XBRL facts filtered to the exact latest 10-K accession, with comparative revenue growth only when the same filing contains both periods. Headline sentiment, technical indicators, and filing interpretation are evidence summaries, not forecasts or guaranteed signals.
-
-## Tests and checks
+## Checks
 
 Backend (from `backend/`):
 
@@ -140,18 +124,8 @@ npm run typecheck
 npm run build
 ```
 
-Automated tests mock all external APIs and model responses; they do not require live market/news access or API credits.
+Automated tests mock LLMs and external providers. They do not require live data or paid API calls.
 
-## Known limitations
+## Disclaimer
 
-- MarketNewsAPI coverage, relevance, timestamps, and publisher metadata vary. The free tier is delayed and rate-limited; V1 does not retrieve or verify full article text. The previous GDELT provider remains in the code as an optional provider implementation, but is no longer used by default.
-- SEC filings are parsed from inline HTML; scanned or atypically structured filings may need parser improvements. Only the selected sections and a compact set of XBRL facts are retrieved. This is not a complete audit of the report. Ingestion is manual and the dashboard does not automatically detect newly filed reports.
-- Pinecone integrated embedding and usage limits depend on the selected account plan. The index embedding schema is fixed at creation; a model change means creating a replacement index and re-ingesting the three latest filings.
-- yfinance is an unofficial interface to Yahoo Finance data; upstream availability, adjustments, and rate limits can change.
-- The application has no database, login, saved reports, caching layer, streaming progress, or realtime feed.
-- Synchronous research depends on upstream latency and is bounded by configured provider/model timeouts. An HTTP timeout cannot guarantee cancellation of a provider call already running in a worker thread.
-- AI interpretations may be incomplete or inaccurate. The system is not validated for professional investment decisions.
-
-## Financial disclaimer
-
-FinSight AI is an experimental research and educational tool. Its outputs may be incomplete or inaccurate and are not financial advice or recommendations to buy or sell securities.
+FinSight AI is an experimental research and educational tool. Its output may be incomplete or inaccurate and is not financial advice or a recommendation to buy or sell securities.

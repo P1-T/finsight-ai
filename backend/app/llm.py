@@ -12,7 +12,7 @@ def require_api_key(settings: Settings | None = None) -> str:
     return key
 
 
-def get_chat_model(settings: Settings | None = None):
+def get_chat_model(settings: Settings | None = None, *, max_tokens: int | None = None):
     resolved = settings or get_settings()
     api_key = require_api_key(resolved)
     from langchain_anthropic import ChatAnthropic
@@ -22,4 +22,5 @@ def get_chat_model(settings: Settings | None = None):
         api_key=api_key,
         timeout=resolved.llm_timeout_seconds,
         max_retries=1,
+        max_tokens_to_sample=max_tokens,
     )

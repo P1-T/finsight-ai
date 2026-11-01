@@ -11,3 +11,9 @@ class ResizeObserverMock implements ResizeObserver {
 }
 
 globalThis.ResizeObserver = ResizeObserverMock;
+
+if (!HTMLElement.prototype.scrollTo) {
+  HTMLElement.prototype.scrollTo = function scrollTo(options?: ScrollToOptions | number, y?: number): void {
+    this.scrollTop = typeof options === "number" ? options : options?.top ?? y ?? this.scrollTop;
+  };
+}
