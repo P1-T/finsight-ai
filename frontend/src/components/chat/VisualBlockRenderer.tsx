@@ -1,5 +1,6 @@
 import { formatDate } from "@/lib/formatters";
 import type { VisualBlock, VisualResearchResponse } from "@/types/research";
+import { DataChart, HistoricalPriceChart } from "@/components/charts/ResearchCharts";
 
 function CompanyHeader({ block }: { block: Extract<VisualBlock, { type: "company_header" }> }) {
   const initials = block.company.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
@@ -24,31 +25,28 @@ function MetricGrid({ block }: { block: Extract<VisualBlock, { type: "metric_gri
 
 function PriceChart({ block }: { block: Extract<VisualBlock, { type: "price_chart" }> }) {
   const points = block.points;
-  const values = points.map((point) => point.close);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const width = 760;
-  const height = 180;
-  const plotted = points.map((point, index) => ({
-    x: points.length < 2 ? width / 2 : index / (points.length - 1) * width,
-    y: height - ((point.close - min) / span * (height - 20) + 10),
-  }));
-  const path = plotted.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
-  const firstDate = points[0]?.date;
-  const lastDate = points.at(-1)?.date;
   return <section className="visual-block visual-chart-block">
     <div className="visual-block-heading"><h3>{block.title}</h3></div>
-    <div className="visual-chart-wrap">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${block.title}, ${points.length} daily observations`} preserveAspectRatio="none">
-        <line x1="0" y1="45" x2={width} y2="45" className="chart-grid-line" />
-        <line x1="0" y1="90" x2={width} y2="90" className="chart-grid-line" />
-        <line x1="0" y1="135" x2={width} y2="135" className="chart-grid-line" />
-        <polyline points={path} fill="none" className="chart-line" />
-      </svg>
-      <div className="visual-chart-scale"><span>${min.toFixed(2)}</span><span>${max.toFixed(2)}</span></div>
-      <div className="visual-chart-dates"><span>{firstDate ? formatDate(firstDate) : ""}</span><span>{lastDate ? formatDate(lastDate) : ""}</span></div>
-    </div>
+    <HistoricalPriceChart points={points} />
+    <div className="visual-chart-dates"><span>{points[0]?.date ? formatDate(points[0].date) : ""}</span><span>{points.at(-1)?.date ? formatDate(points.at(-1)!.date) : ""}</span></div>
+  </section>;
+}
+
+function FactGrid({ block }: { block: Extract<VisualBlock, { type: "fact_grid" }> }) {
+  return <section className="visual-block">
+    <div className="visual-block-heading"><h3>{block.title}</h3><span className="visual-period-label">{block.period}</span></div>
+    <div className="visual-fundamental-grid">{block.metrics.map((metric, index) => <article className="visual-fundamental-card" key={`${metric.label}-${index}`}>
+      <span>{metric.label}</span><strong>{metric.value}</strong>
+      {metric.range_low && metric.range_high ? <div className="visual-range-band" role="img" aria-label={`${metric.label} range from ${metric.range_low} to ${metric.range_high}`}><span>{metric.range_low}</span><i /><span>{metric.range_high}</span></div> : null}
+      {metric.detail ? <small>{metric.detail}</small> : null}
+    </article>)}</div>
+  </section>;
+}
+
+function ResearchDataChart({ block }: { block: Extract<VisualBlock, { type: "data_chart" }> }) {
+  return <section className="visual-block visual-chart-block">
+    <div className="visual-block-heading"><h3>{block.title}</h3></div>
+    <DataChart block={block} />
   </section>;
 }
 
@@ -111,6 +109,8 @@ export function VisualBlockRenderer({ block }: { block: VisualBlock }) {
     case "scenario_cards": return <Scenarios block={block} />;
     case "news_timeline": return <Timeline block={block} />;
     case "comparison_table": return <Comparison block={block} />;
+    case "fact_grid": return <FactGrid block={block} />;
+    case "data_chart": return <ResearchDataChart block={block} />;
     case "takeaways": return <Takeaways block={block} />;
     case "answer_card": return <AnswerCard block={block} />;
   }
@@ -118,10 +118,6 @@ export function VisualBlockRenderer({ block }: { block: VisualBlock }) {
 
 export function VisualResearchAnswer({ response }: { response: VisualResearchResponse }) {
   const includesSummary = response.blocks.some((block) => block.type === "company_header" || block.type === "answer_card");
-  const hasIllustrativeData = response.blocks.some((block) => {
-    if ("provenance" in block && (block.provenance.kind === "illustrative" || block.provenance.kind === "mixed")) return true;
-    return block.type === "scenario_cards" && block.points.some((point) => point.provenance.kind === "illustrative");
-  });
   return <div className="visual-response" data-generated-by={response.generated_by}>
     <header className="visual-response-header"><span>{response.template.replaceAll("_", " ")}</span><h2>{response.title}</h2></header>
     {!includesSummary && response.summary ? <p className="visual-response-summary">{response.summary}</p> : null}
@@ -130,6 +126,5 @@ export function VisualResearchAnswer({ response }: { response: VisualResearchRes
       {source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a> : <span>{source.title}</span>}
       <small>{source.id} · {source.provider}{source.published_at ? ` · ${formatDate(source.published_at)}` : ""}</small>
     </li>)}</ol></details> : null}
-    {hasIllustrativeData ? <p className="visual-demo-disclosure">Some figures and scenario details are simulated for demonstration and may not reflect actual company data.</p> : null}
   </div>;
 }

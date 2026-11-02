@@ -14,7 +14,10 @@ from app.utils.errors import ProviderError
 logger = logging.getLogger(__name__)
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers_exchange.json"
 # Common public-facing brand names that differ substantially from their SEC legal names.
-COMPANY_ALIASES = {"google": "GOOGL", "alphabet": "GOOGL", "oracle": "ORCL"}
+COMPANY_ALIASES = {
+    "google": "GOOGL", "alphabet": "GOOGL", "oracle": "ORCL",
+    "meta": "META", "facebook": "META",
+}
 COMMON_WORDS = {
     "a", "am", "an", "and", "are", "as", "at", "be", "but", "by", "can", "compare",
     "do", "for", "from", "go", "has", "have", "he", "her", "here", "how", "i", "if",
@@ -121,9 +124,15 @@ class CompanyDirectory:
         companies = self.all()
         symbols = {company.ticker: company for company in companies}
         mentioned: list[Company] = []
-        for match in re.finditer(r"(?<![A-Za-z0-9])\$?([A-Za-z][A-Za-z0-9.-]{0,14})(?![A-Za-z0-9])", prompt):
+        for match in re.finditer(r"(?<![A-Za-z0-9'])\$?([A-Za-z][A-Za-z0-9.-]{0,14})(?![A-Za-z0-9])", prompt):
             raw_symbol = match.group(1)
             if not match.group(0).startswith("$") and raw_symbol.casefold() in COMMON_WORDS:
+                continue
+            # Treat bare tickers as symbols only when users format them as
+            # symbols. Lowercase prose such as "move" must not resolve to MOVE.
+            if not match.group(0).startswith("$") and raw_symbol != raw_symbol.upper():
+                continue
+            if len(raw_symbol) == 1 and raw_symbol != raw_symbol.upper() and not match.group(0).startswith("$"):
                 continue
             if company := symbols.get(raw_symbol.upper()):
                 if company not in mentioned:
@@ -144,11 +153,32 @@ class CompanyDirectory:
                 # that happen to share the same legal/display name.
                 if searchable in explicit_names and company not in mentioned:
                     continue
-                if searchable and re.search(rf"(?<!\w){re.escape(searchable)}(?!\w)", lowered):
+                # A one-word legal name that is also ordinary vocabulary (e.g.
+                # "News" from News Corp) requires the full displayed company
+                # name to appear; otherwise normal prose becomes an entity.
+                common_single_word = len(searchable.split()) == 1 and searchable in COMMON_WORDS
+                name_to_match = " ".join(re.sub(r"[^a-z0-9]+", " ", company.name.casefold()).split()) if common_single_word else searchable
+                if name_to_match and re.search(rf"(?<!\w){re.escape(name_to_match)}(?!\w)", lowered):
                     if company not in mentioned:
                         mentioned.append(company)
                         if len(mentioned) >= maximum:
                             break
+        if len(mentioned) < maximum:
+            # Recognize an exact leading brand token (e.g. "Meta" for Meta
+            # Platforms) while rejecting partial spellings such as "Neta" for
+            # NetApp. SEC legal names often contain extra words users omit.
+            brand_matches: list[Company] = []
+            for company in companies:
+                searchable = _searchable_company_name(company.name)
+                brand_token = searchable.split(maxsplit=1)[0] if searchable else ""
+                if (
+                    len(brand_token) >= 4
+                    and brand_token not in COMMON_WORDS
+                    and re.search(rf"(?<!\w){re.escape(brand_token)}(?!\w)", lowered)
+                ):
+                    brand_matches.append(company)
+            if len(brand_matches) == 1 and brand_matches[0] not in mentioned:
+                mentioned.append(brand_matches[0])
         return mentioned[:maximum]
 
 

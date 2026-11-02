@@ -7,11 +7,17 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Activity, ArrowUp, CircleHelp, Command, MessageSquareText, Plus, ShieldCheck, Sparkles, Square, Trash2, PencilLine } from "lucide-react";
 import { ResearchResponseView } from "@/components/chat/ResearchResponseView";
-import type { CompanyIdentity, ResearchChatMessage, ResearchResponse, ResearchTool, SavedConversation } from "@/types/research";
+import type { CompanyIdentity, ResearchChatMessage, ResearchLayout, ResearchResponse, ResearchTool, SavedConversation } from "@/types/research";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const STORAGE_KEY = "finsight-v2-conversations";
 const TOOL_LABELS: Record<ResearchTool, string> = { market_data: "Market data", news_search: "News search", web_search: "Web search" };
+const COMPONENT_LABELS: Record<string, string> = {
+  company_header: "Company overview", metric_grid: "Market snapshot", price_chart: "Price chart",
+  fundamental_cards: "Fundamentals", scenario_cards: "Scenarios", news_timeline: "Recent coverage",
+  comparison_table: "Comparison", fact_grid: "Reported results", data_chart: "Chart", answer_card: "Answer",
+  takeaways: "Takeaways",
+};
 const SUGGESTIONS = [
   { title: "Compare two companies", detail: "Recent performance, catalysts, and key differences", prompt: "Compare AMD and Alphabet using their recent market performance and news." },
   { title: "Understand a market move", detail: "Use recent coverage to explain what may be driving it", prompt: "What recent news and market factors may explain the move in Tesla shares?" },
@@ -55,6 +61,11 @@ function latestStage(message: ResearchChatMessage): string | null {
 function researchResponse(message: ResearchChatMessage): ResearchResponse | null {
   const part = message.parts.filter((item) => item.type === "data-research-response").at(-1);
   return part?.type === "data-research-response" ? part.data : null;
+}
+
+function researchLayout(message: ResearchChatMessage): ResearchLayout | null {
+  const part = message.parts.filter((item) => item.type === "data-research-layout").at(-1);
+  return part?.type === "data-research-layout" ? part.data : null;
 }
 
 export function ResearchWorkspace() {
@@ -234,11 +245,13 @@ export function ResearchWorkspace() {
             const latestAssistant = message.role === "assistant" && message.id === messages.at(-1)?.id;
             const statuses = message.role === "assistant" ? toolStatuses(message) : [];
             const stage = message.role === "assistant" ? latestStage(message) : null;
+            const layout = message.role === "assistant" ? researchLayout(message) : null;
             return <article className={`v2-message v2-message-${message.role}`} key={message.id}>
               {message.role === "user" ? <><div className="v2-user-label">YOU</div><div className="v2-user-text"><ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown></div></> : <>
                 <div className="v2-answer-heading"><span className="answer-avatar"><Sparkles size={15} /></span><div><strong>FinSight</strong><small>Research assistant</small></div></div>
                 {latestAssistant && busy && statuses.length ? <div className="source-status-row">{statuses.map(({ tool }) => <span className="source-status status-running" key={tool}><i />{TOOL_LABELS[tool]} · running</span>)}</div> : null}
                 {latestAssistant && busy && !statuses.length && stage ? <div className="source-status-row"><span className="source-status status-running"><i />{stage}</span></div> : null}
+                {latestAssistant && busy && layout ? <div className="research-layout-preview" aria-live="polite"><span>Response layout</span>{layout.components.map((component) => COMPONENT_LABELS[component] ? <i key={component}>{COMPONENT_LABELS[component]}</i> : null)}</div> : null}
                 {response ? <ResearchResponseView
                   response={response}
                   onResolveCompany={(company: CompanyIdentity) => {
@@ -260,7 +273,6 @@ export function ResearchWorkspace() {
           {busy ? <button type="button" className="v2-send-button stop" onClick={stop} aria-label="Stop response"><Square size={14} fill="currentColor" /></button> : <button type="submit" className="v2-send-button" disabled={!input.trim()} aria-label="Send message"><ArrowUp size={18} /></button>}
         </form>
         <div className="v2-composer-meta"><span><Command size={12} /> Enter to send · Shift + Enter for a new line</span><span>AI selects the response layout</span></div>
-        <div className="v2-disclaimer"><ShieldCheck size={13} /> Portfolio demo only. Synthetic figures are labeled; outputs are not financial advice.</div>
       </footer>
     </section>
   </main>;

@@ -192,11 +192,64 @@ def synthetic_dataset(ticker: str) -> dict[str, Any]:
         {"label": "Debt", "value": f"${debt:.1f}B", "detail": "Total debt"},
     ]
     scenarios = _SCENARIOS.get(profile, _DEFAULT_SCENARIOS)
+    segment_mix_by_profile = {
+        "consumer_hardware": [("Devices", 58), ("Services", 27), ("Wearables", 9), ("Other", 6)],
+        "cloud_software": [("Cloud", 54), ("Software", 25), ("Services", 14), ("Other", 7)],
+        "semiconductors": [("Data center", 46), ("Client", 27), ("Networking", 16), ("Other", 11)],
+        "cybersecurity": [("Platform", 52), ("Subscriptions", 28), ("Services", 13), ("Other", 7)],
+        "digital_platforms": [("Advertising", 76), ("Subscriptions", 13), ("Devices", 7), ("Other", 4)],
+        "commerce_cloud": [("Commerce", 48), ("Cloud", 31), ("Advertising", 15), ("Other", 6)],
+        "mobility": [("Vehicles", 82), ("Services", 10), ("Energy", 5), ("Other", 3)],
+        "enterprise_software": [("Subscriptions", 56), ("Licenses", 22), ("Services", 16), ("Other", 6)],
+    }
+    pe_ratio = round(rng.uniform(14, 68), 1)
+    dividend_yield = round(rng.uniform(0.1, 3.8), 2)
+    valuation = [
+        {"label": "Trailing P/E", "value": f"{pe_ratio:.1f}x", "detail": "Price relative to trailing earnings"},
+        {"label": "Forward P/E", "value": f"{max(8, pe_ratio * rng.uniform(0.72, 1.08)):.1f}x", "detail": "Price relative to estimated earnings"},
+        {"label": "Price / sales", "value": f"{rng.uniform(1.5, 28):.1f}x", "detail": "Price relative to revenue"},
+        {"label": "EV / EBITDA", "value": f"{rng.uniform(7, 42):.1f}x", "detail": "Enterprise value relative to EBITDA"},
+    ]
+    dividend = [
+        {"label": "Dividend yield", "value": f"{dividend_yield:.2f}%", "detail": "Annualized dividend relative to share price"},
+        {"label": "Annual dividend", "value": f"${start_price * dividend_yield / 100:.2f}", "detail": "Per share"},
+        {"label": "Payout ratio", "value": f"{rng.uniform(18, 78):.1f}%", "detail": "Dividend relative to earnings"},
+        {"label": "5-year dividend growth", "value": f"{rng.uniform(0, 14):.1f}%", "detail": "Annualized growth rate"},
+    ]
+    risk = [
+        {"label": "Beta", "value": f"{rng.uniform(0.55, 2.05):.2f}", "detail": "Sensitivity to broad-market moves"},
+        {"label": "Annualized volatility", "value": f"{rng.uniform(18, 68):.1f}%", "detail": "Historical price variability"},
+        {"label": "Maximum drawdown", "value": f"-{rng.uniform(12, 52):.1f}%", "detail": "Peak-to-trough decline"},
+        {"label": "Downside capture", "value": f"{rng.uniform(65, 145):.1f}%", "detail": "Relative loss in declining periods"},
+    ]
+    sector = [
+        {"label": "Industry revenue growth", "value": f"{rng.uniform(-4, 24):+.1f}%", "detail": "Current annual growth context"},
+        {"label": "Peer median margin", "value": f"{rng.uniform(8, 38):.1f}%", "detail": "Operating margin benchmark"},
+        {"label": "Demand index", "value": f"{rng.uniform(65, 145):.0f}", "detail": "Relative demand, indexed to 100"},
+        {"label": "Competitive intensity", "value": f"{rng.uniform(35, 90):.0f}/100", "detail": "Market concentration and rivalry"},
+    ]
     return {
         "frame": frame,
         "points": [{"date": session.isoformat(), "close": close} for session, close in zip(sessions, closes, strict=True)],
         "as_of": sessions[-1].isoformat(),
         "fundamentals": fundamentals,
+        "segment_mix": segment_mix_by_profile.get(profile, segment_mix_by_profile["enterprise_software"]),
+        "valuation_analysis": valuation,
+        "dividend_analysis": dividend,
+        "risk_analysis": risk,
+        "sector_analysis": sector,
+        "chart_metrics": {
+            "valuation": {"pe": pe_ratio, "price_sales": float(valuation[2]["value"].removesuffix("x")), "ev_ebitda": float(valuation[3]["value"].removesuffix("x"))},
+            "dividend": {"yield": dividend_yield, "payout": float(dividend[2]["value"].removesuffix("%")), "growth": float(dividend[3]["value"].removesuffix("%"))},
+            "risk": {"beta": float(risk[0]["value"]), "volatility": float(risk[1]["value"].removesuffix("%")), "drawdown": float(risk[2]["value"].removesuffix("%"))},
+            "sector": {"growth": float(sector[0]["value"].removesuffix("%")), "margin": float(sector[1]["value"].removesuffix("%")), "demand": float(sector[2]["value"])},
+        },
+        "trend_series": {
+            "valuation": [round(pe_ratio * factor, 1) for factor in (0.78, 0.91, 1.07, 0.96, 1.0)],
+            "dividend": [round(dividend_yield * factor, 2) for factor in (1.3, 1.2, 1.12, 1.06, 1.0)],
+            "risk": [round(value, 1) for value in (rng.uniform(-8, -3), rng.uniform(-15, -8), rng.uniform(-24, -12), rng.uniform(-11, -4), -rng.uniform(0, 8))],
+            "sector": [round(value, 1) for value in (92, 96, 101, 105, rng.uniform(103, 121))],
+        },
         "bull_case": scenarios["bull"],
         "bear_case": scenarios["bear"],
         "fixture_ticker": symbol if stored else None,

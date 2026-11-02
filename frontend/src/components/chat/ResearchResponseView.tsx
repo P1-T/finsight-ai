@@ -102,6 +102,12 @@ function LegacyResponseView({ response }: { response: LegacyResearchResponse }) 
       : response.template === "stock_comparison" ? <StockComparison response={response} />
         : response.template === "news_analysis" ? <NewsAnalysis response={response} />
           : response.template === "technical_analysis" ? <TechnicalAnalysis response={response} />
+              : response.template === "quarterly_performance" ? <>
+                <p className="response-company-line">{response.company.name} · {response.company.ticker}</p>
+                <p className="response-summary"><strong>{response.narrative.period}.</strong> {response.narrative.summary}</p>
+                <EvidenceList title="Bull case scenario" items={response.narrative.positive_drivers} />
+                <EvidenceList title="Bear case scenario" items={response.narrative.risks} />
+              </>
             : response.template === "research_answer" ? <p className="response-summary">{response.narrative.answer}</p>
               : <p className="response-summary">{response.narrative.question}</p>}
     <ResponseSources sources={response.sources} />
@@ -119,7 +125,7 @@ export function ResearchResponseView({
   const unresolvedQuery = "unresolved_company_query" in response ? response.unresolved_company_query : null;
   const suggestions = "company_suggestions" in response ? response.company_suggestions : [];
   return <>
-    {response.schema_version === 2
+    {"blocks" in response
       ? <VisualResearchAnswer response={response} />
       : <LegacyResponseView response={response} />}
     {clarification && unresolvedQuery && onResolveCompany ? <CompanyResolutionPicker

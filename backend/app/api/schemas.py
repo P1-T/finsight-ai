@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 
 class HealthResponse(BaseModel):
@@ -47,7 +54,32 @@ ResponseTemplate = Literal[
     "stock_comparison",
     "news_analysis",
     "technical_analysis",
+    "quarterly_performance",
     "research_answer",
+    "valuation_analysis",
+    "dividend_analysis",
+    "risk_analysis",
+    "sector_analysis",
+    "forward_outlook",
+    "earnings_preview",
+    "revenue_analysis",
+    "growth_analysis",
+    "profitability_analysis",
+    "cash_flow_analysis",
+    "balance_sheet_analysis",
+    "valuation_comparison",
+    "price_momentum",
+    "trend_analysis",
+    "support_resistance",
+    "volume_analysis",
+    "market_reaction",
+    "catalyst_analysis",
+    "analyst_sentiment",
+    "insider_activity",
+    "institutional_ownership",
+    "short_interest",
+    "options_activity",
+    "macro_sensitivity",
 ]
 VisualComponentType = Literal[
     "company_header",
@@ -57,6 +89,8 @@ VisualComponentType = Literal[
     "scenario_cards",
     "news_timeline",
     "comparison_table",
+    "fact_grid",
+    "data_chart",
     "takeaways",
     "answer_card",
 ]
@@ -82,7 +116,8 @@ class ResearchPlan(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    intent: Literal["general", "company_research", "market_data", "news", "comparison", "educational", "other"]
+    intent: Literal["general", "company_research", "market_data", "news", "comparison", "earnings", "educational", "other"]
+    template_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$")
     response_template: ResponseTemplate = "research_answer"
     companies: list[CompanyQuery] = Field(default_factory=list, max_length=6)
     market_data: MarketDataAction | None = None
@@ -150,6 +185,40 @@ class TechnicalAnalysisNarrative(BaseModel):
     summary: str = Field(min_length=1, max_length=1200)
     source_ids: list[str] = Field(default_factory=list, max_length=15)
     observations: list[EvidenceClaim] = Field(default_factory=list, max_length=6)
+
+
+class FinancialFact(BaseModel):
+    """A numeric reported fact whose source quote is checked against retrieved evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=80)
+    value: float
+    range_end: float | None = None
+    unit: Literal["percent", "USD", "EUR", "USD_billions", "EUR_billions", "USD_millions", "EUR_millions", "count"]
+    fact_kind: Literal["reported", "guidance"] = "reported"
+    comparison_value: float | None = None
+    comparison_label: str | None = Field(default=None, max_length=60)
+    period: str = Field(min_length=1, max_length=60)
+    source_ids: list[str] = Field(min_length=1, max_length=4)
+    evidence_quote: str = Field(min_length=12, max_length=280)
+
+    @model_validator(mode="after")
+    def valid_numeric_range(self) -> FinancialFact:
+        if self.range_end is not None and self.range_end < self.value:
+            raise ValueError("range_end must be greater than or equal to value")
+        return self
+
+
+class QuarterlyPerformanceNarrative(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=420)
+    period: str = Field(min_length=1, max_length=80)
+    reported_facts: list[FinancialFact] = Field(default_factory=list, max_length=10)
+    positive_drivers: list[EvidenceClaim] = Field(default_factory=list, max_length=4)
+    risks: list[EvidenceClaim] = Field(default_factory=list, max_length=4)
+    source_ids: list[str] = Field(default_factory=list, max_length=15)
 
 
 class ResearchAnswerNarrative(BaseModel):
@@ -250,6 +319,39 @@ class FundamentalCardsBlock(BaseModel):
     provenance: DataProvenance
 
 
+class FactGridMetric(BaseModel):
+    label: str
+    value: str
+    detail: str | None = None
+    range_low: str | None = None
+    range_high: str | None = None
+    source_ids: list[str] = Field(default_factory=list)
+
+
+class FactGridBlock(BaseModel):
+    type: Literal["fact_grid"]
+    title: str
+    period: str
+    metrics: list[FactGridMetric] = Field(max_length=10)
+    provenance: DataProvenance
+
+
+class DataChartDatum(BaseModel):
+    label: str
+    value: float
+    source_ids: list[str] = Field(default_factory=list)
+
+
+class DataChartBlock(BaseModel):
+    type: Literal["data_chart"]
+    chart_type: Literal["line", "bar", "donut"]
+    title: str
+    unit: Literal["percent", "USD", "EUR", "USD_billions", "EUR_billions", "USD_millions", "EUR_millions", "count"]
+    data: list[DataChartDatum] = Field(min_length=2, max_length=24)
+    provenance: DataProvenance
+    source_ids: list[str] = Field(default_factory=list)
+
+
 class ScenarioPoint(BaseModel):
     title: str
     detail: str
@@ -261,7 +363,7 @@ class ScenarioCardsBlock(BaseModel):
     type: Literal["scenario_cards"]
     scenario: Literal["bull", "bear"]
     title: str
-    points: list[ScenarioPoint] = Field(min_length=4, max_length=4)
+    points: list[ScenarioPoint] = Field(min_length=1, max_length=4)
 
 
 class TimelineItem(BaseModel):
@@ -316,6 +418,8 @@ VisualBlock = Annotated[
         ScenarioCardsBlock,
         NewsTimelineBlock,
         ComparisonTableBlock,
+        FactGridBlock,
+        DataChartBlock,
         TakeawaysBlock,
         AnswerCardBlock,
     ],
@@ -324,8 +428,10 @@ VisualBlock = Annotated[
 
 
 class VisualResearchResponse(BaseModel):
-    schema_version: Literal[2] = 2
+    schema_version: Literal[3] = 3
     template: ResponseTemplate | Literal["clarification"]
+    intent_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$")
+    intent_confidence: float | None = Field(default=None, ge=0, le=1)
     title: str
     summary: str
     blocks: list[VisualBlock] = Field(default_factory=list, max_length=12)
@@ -388,8 +494,22 @@ class TechnicalAnalysisResponse(ResponseBase):
     narrative: TechnicalAnalysisNarrative
 
 
+class QuarterlyPerformanceResponse(ResponseBase):
+    template: Literal["quarterly_performance"]
+    company: CompanyIdentity
+    market_snapshot: MarketSnapshot | None = None
+    narrative: QuarterlyPerformanceNarrative
+
+
 class ResearchAnswerResponse(ResponseBase):
-    template: Literal["research_answer"]
+    template: Literal[
+        "research_answer", "valuation_analysis", "dividend_analysis", "risk_analysis", "sector_analysis",
+        "forward_outlook", "earnings_preview", "revenue_analysis", "growth_analysis",
+        "profitability_analysis", "cash_flow_analysis", "balance_sheet_analysis", "valuation_comparison",
+        "price_momentum", "trend_analysis", "support_resistance", "volume_analysis", "market_reaction",
+        "catalyst_analysis", "analyst_sentiment", "insider_activity", "institutional_ownership",
+        "short_interest", "options_activity", "macro_sensitivity",
+    ]
     narrative: ResearchAnswerNarrative
 
 
@@ -406,6 +526,7 @@ LegacyResearchResponse = Annotated[
         StockComparisonResponse,
         NewsAnalysisResponse,
         TechnicalAnalysisResponse,
+        QuarterlyPerformanceResponse,
         ResearchAnswerResponse,
         ClarificationResponse,
     ],

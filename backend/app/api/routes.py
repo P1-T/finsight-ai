@@ -56,6 +56,8 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
                     event_type = progress.get("event")
                     if event_type == "plan":
                         yield emit({"type": "data-research-stage", "data": {"stage": "research", "label": "Gathering selected sources" if progress["tool_count"] else "Preparing a general answer"}})
+                    elif event_type == "layout":
+                        yield emit({"type": "data-research-layout", "data": {"template": progress["template"], "components": progress["components"]}})
                     elif event_type == "stage":
                         yield emit({"type": "data-research-stage", "data": {"stage": progress["stage"], "label": progress["label"]}})
                     elif event_type == "tool_status":
