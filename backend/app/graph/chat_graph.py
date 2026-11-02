@@ -1157,8 +1157,13 @@ async def _synthesize_node(state: ChatState) -> dict[str, Any]:
     synthesis_model = create_model(
         f"{narrative_model.__name__}WithVisualLayout",
         narrative=(narrative_model, ...),
+        closing_summary=(str, Field(min_length=60, max_length=700)),
         visual_components=(list[VisualComponentType], Field(min_length=1, max_length=9)),
-        chart_types=(list[Literal["line", "bar", "donut"]], Field(default_factory=list, max_length=3)),
+        chart_types=(list[Literal[
+            "line", "line_multi", "bar", "bar_horizontal", "bar_multiple", "bar_stacked",
+            "bar_negative", "donut", "donut_text", "pie_interactive", "radial_stacked",
+        ]], Field(default_factory=list, max_length=7)),
+        follow_up_questions=(list[str], Field(default_factory=list, max_length=3)),
     )
     market_evidence = [item for item in evidence if item.get("type") == "market_data" and item.get("status") != "failed"]
     news_evidence = [item for item in evidence if item.get("type") == "news"]
@@ -1210,7 +1215,7 @@ async def _synthesize_node(state: ChatState) -> dict[str, Any]:
             else "news_not_requested"
         ),
         "supported_market_fields": ["latest_close", "daily_pct_change", "return_5d", "return_20d", "sma20", "sma50"],
-        "chart_type_choices": ["line", "bar", "donut"],
+        "chart_type_choices": ["bar_horizontal", "bar_multiple", "bar_stacked", "bar_negative", "line_multi", "donut_text", "pie_interactive", "radial_stacked"],
         "quarterly_fact_rules": {
             "required": "Each reported fact or forward guidance item must include an exact short evidence_quote copied from a cited retrieved title/snippet and its matching source_id.",
             "separate": "Set fact_kind=reported for results already reported and fact_kind=guidance for forward-looking management guidance. Never mix guidance into reported results.",
@@ -1262,7 +1267,7 @@ async def _synthesize_node(state: ChatState) -> dict[str, Any]:
         model = get_chat_model(max_tokens=2600).with_structured_output(synthesis_model)
         synthesis = await model.ainvoke([
             SystemMessage(content=(
-                "You are FinSight, composing a useful answer and a visual layout. Return the strict JSON schema containing narrative, visual_components, and chart_types. Apply response_guidance and selected_intent_template to the exact user question. The intent example clarifies the narrow question being answered; do not answer the example instead of the user's wording. Choose visual_components after reviewing the evidence and demo fixtures. Always choose at least one component; use answer_card for a clarification or a simple general answer, and use data_chart when a chart can make the answer easier to understand. Select chart_types from line, bar, and donut to match the question. For company research use available market/fundamental blocks and a chart; for comparisons prefer comparison_table and a bar chart; for quarterly results use fact_grid and a chart when there are comparable facts; for technical questions use a line chart; for news use news_timeline and a donut when useful. General finance questions should use a visual example when data does not apply. "
+                "You are FinSight, composing a useful answer and a visual layout. Return the strict JSON schema containing narrative, closing_summary, visual_components, chart_types, and follow_up_questions. The closing_summary must directly answer the exact original_question, not merely recap the layout or repeat the narrative introduction. Write one short paragraph of 3–4 concise sentences (about 45–80 words), with no heading or bullets. For contextual follow-ups, resolve references using recent_conversation and answer the user's latest prompt. Use only the supplied evidence; state key uncertainty plainly rather than filling gaps. Provide up to three short, relevant follow-up questions that naturally extend the current answer and are answerable with the available research workflow. Apply response_guidance and selected_intent_template to the exact user question. The intent example clarifies the narrow question being answered; do not answer the example instead of the user's wording. Choose visual_components after reviewing the evidence and demo fixtures. Always choose at least one component; use answer_card for a clarification or a simple general answer, and use data_chart when a chart can make the answer easier to understand. Choose chart_types only from chart_type_choices and select layouts that clarify the question. Available layouts include horizontal, grouped, stacked, negative-value and multi-line charts, donut with center text, interactive pie, and stacked radial charts. For comparisons prefer comparison_table plus grouped bars or multi-line; for quarterly results use fact_grid and a chart when there are comparable facts; for technical questions use a line chart; for news use news_timeline and a donut when useful. General finance questions should use a visual example when data does not apply. "
                 "The backend constructs the final component data from validated evidence and supplied fixtures. Never invent numbers, company identities, article URLs, dates, or source IDs. Choose component and chart types only; do not describe components in narrative prose. The backend may use its supplied fixtures to fill visual component data. Do not add disclosure or warning statements about demo or synthetic data. "
                 "Use factual claims only when supported by the provided evidence and attach source IDs only through schema source_ids fields. Do not put source IDs in prose. Keep fixture values out of factual narrative and do not discuss the origin of chart values. "
                 "For quarterly_performance, return explicitly supported reported metrics and management guidance as separate reported_facts. Set fact_kind to reported or guidance. Copy a short exact evidence_quote from the cited retrieved title/snippet; the quoted source must contain every numeric value, including both endpoints for a range. The period must be corroborated by the retrieved evidence (quarter labels such as Q3 2026 and 'third quarter of 2026' mean the same period). Label reported versus constant-currency figures distinctly. Put numerical figures in reported_facts, not the summary or scenario prose. If snippets do not support a figure, omit it. Keep the summary to one or two short sentences and each scenario point to one concise sentence. "
@@ -1272,15 +1277,19 @@ async def _synthesize_node(state: ChatState) -> dict[str, Any]:
             HumanMessage(content=json.dumps(context, ensure_ascii=False, separators=(",", ":"))),
         ])
         narrative = synthesis.narrative
+        selected_closing_summary = synthesis.closing_summary
         selected_visual_components = synthesis.visual_components
         selected_chart_types = synthesis.chart_types
+        selected_follow_up_questions = synthesis.follow_up_questions
     except Exception as exc:
         synthesis_fallback = True
         logger.info("Narrative model unavailable; using demo fallback (%s)", type(exc).__name__)
         companies_for_fallback = [CompanyIdentity(ticker=company.ticker, name=company.name, exchange=company.exchange) for company in plan.companies]
         narrative = _fallback_narrative(template, companies_for_fallback, plan.clarification)
+        selected_closing_summary = ""
         selected_visual_components = plan.proposal.visual_components
         selected_chart_types = []
+        selected_follow_up_questions = []
     if queue:
         queue.put_nowait({"event": "layout", "template": template, "components": selected_visual_components})
     if not isinstance(narrative, narrative_model):
@@ -1387,6 +1396,8 @@ async def _synthesize_node(state: ChatState) -> dict[str, Any]:
         chart_types=selected_chart_types,
         intent_id=plan.intent_id,
         intent_confidence=plan.intent_confidence,
+        closing_summary=selected_closing_summary,
+        follow_up_questions=selected_follow_up_questions,
     )
     response_data = visual_response.model_dump(mode="json", exclude_none=True)
     answer = _render_visual_response(visual_response)

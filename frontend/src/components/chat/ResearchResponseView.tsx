@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/formatters";
 import type {
   CompanyAnalysisResponse,
@@ -12,6 +15,7 @@ import type {
 } from "@/types/research";
 import { VisualResearchAnswer } from "@/components/chat/VisualBlockRenderer";
 import { CompanyResolutionPicker } from "@/components/chat/CompanyResolutionPicker";
+import { ArrowRight, Check, Copy, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { CompanyIdentity } from "@/types/research";
 
 const METRIC_LABELS: Partial<Record<MarketMetric["key"], string>> = {
@@ -109,21 +113,41 @@ function LegacyResponseView({ response }: { response: LegacyResearchResponse }) 
                 <EvidenceList title="Bear case scenario" items={response.narrative.risks} />
               </>
             : response.template === "research_answer" ? <p className="response-summary">{response.narrative.answer}</p>
-              : <p className="response-summary">{response.narrative.question}</p>}
+              : response.template === "clarification" ? <p className="response-summary">{response.narrative.question}</p>
+                : <p className="response-summary">{response.narrative.answer}</p>}
     <ResponseSources sources={response.sources} />
   </div>;
 }
 
 export function ResearchResponseView({
   response,
+  copyText,
+  onFollowUp,
   onResolveCompany,
 }: {
   response: ResearchResponse;
+  copyText?: string;
+  onFollowUp?: (question: string) => void;
   onResolveCompany?: (company: CompanyIdentity) => void;
 }) {
+  const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
+  const [copied, setCopied] = useState(false);
   const clarification = response.template === "clarification";
   const unresolvedQuery = "unresolved_company_query" in response ? response.unresolved_company_query : null;
   const suggestions = "company_suggestions" in response ? response.company_suggestions : [];
+  const summary = responseSummary(response);
+  const followUps = responseFollowUps(response);
+
+  async function copyResponse() {
+    if (!summary || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(copyText?.trim() || summary);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return <>
     {"blocks" in response
       ? <VisualResearchAnswer response={response} />
@@ -134,5 +158,51 @@ export function ResearchResponseView({
       initialSuggestions={suggestions}
       onResolve={onResolveCompany}
     /> : null}
+    <footer className="response-closing">
+      {summary ? <section className="response-closing-summary" aria-label="Summary">
+        <span className="response-closing-eyebrow">SUMMARY</span>
+        <p>{summary}</p>
+      </section> : null}
+      <div className="response-actions" aria-label="Response actions">
+        <button type="button" className={reaction === "like" ? "is-selected" : ""} aria-label="Like response" aria-pressed={reaction === "like"} title="Like response" onClick={() => setReaction(reaction === "like" ? null : "like")}><ThumbsUp size={16} /></button>
+        <button type="button" className={reaction === "dislike" ? "is-selected" : ""} aria-label="Dislike response" aria-pressed={reaction === "dislike"} title="Dislike response" onClick={() => setReaction(reaction === "dislike" ? null : "dislike")}><ThumbsDown size={16} /></button>
+        <button type="button" aria-label={copied ? "Response copied" : "Copy response"} title={copied ? "Copied" : "Copy response"} onClick={copyResponse}>{copied ? <Check size={16} /> : <Copy size={16} />}</button>
+      </div>
+      <section className="response-followups" aria-label="Follow-up questions">
+        <h3>Continue exploring</h3>
+        <div className="response-followup-list">
+          {followUps.map((question) => <button key={question} type="button" onClick={() => onFollowUp?.(question)} disabled={!onFollowUp}>
+            <ArrowRight size={15} aria-hidden="true" /> <span>{question}</span>
+          </button>)}
+        </div>
+      </section>
+    </footer>
   </>;
+}
+
+function responseSummary(response: ResearchResponse): string {
+  let value = "";
+  if ("blocks" in response) return (response.closing_summary || response.summary).trim();
+  else if ("summary" in response.narrative) value = response.template === "quarterly_performance"
+    ? `${response.narrative.period}. ${response.narrative.summary}`
+    : response.narrative.summary;
+  else if ("answer" in response.narrative) value = response.narrative.answer;
+  else if ("question" in response.narrative) value = response.narrative.question;
+  const concise = value.trim().split(/(?<=[.!?])\s+/)[0] ?? "";
+  return concise.length > 280 ? `${concise.slice(0, 277).trimEnd()}…` : concise;
+}
+
+function responseFollowUps(response: ResearchResponse): string[] {
+  if ("blocks" in response && response.follow_up_questions?.length) return response.follow_up_questions.slice(0, 3);
+  const companies: CompanyIdentity[] = "blocks" in response ? [] : response.companies;
+  const entity = companies.slice(0, 2).map((company) => `${company.name} (${company.ticker})`).join(" and ") || "this company";
+  const defaults: Record<string, string[]> = {
+    company_analysis: [`What drove ${entity}'s latest quarterly results?`, `What recent developments could affect ${entity}?`, `How does ${entity} compare with its closest peers?`],
+    stock_comparison: ["Which company has stronger recent momentum?", "How do their latest quarterly results compare?", "What are the main risks that differ between them?"],
+    quarterly_performance: [`What drove ${entity}'s reported results?`, `How did the quarter compare with the prior year?`, `What should I watch in ${entity}'s next results?`],
+    news_analysis: ["Which recent catalysts matter most?", "How has the market reacted to these developments?", "What upcoming events could change this view?"],
+    technical_analysis: [`How has ${entity}'s trend changed over the past six months?`, "Which price levels mattered most recently?", "How does the recent move compare with its peers?"],
+    clarification: ["Would you like to focus on company fundamentals or share performance?", "Should I include recent news?", "Would a comparison with another company help?"],
+  };
+  return defaults[response.template] ?? [`What are the main risks and counterpoints for ${entity}?`, `How does recent evidence compare with ${entity}'s longer-term trend?`, `Which upcoming developments should I watch for ${entity}?`];
 }

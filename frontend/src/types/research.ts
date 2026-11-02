@@ -146,12 +146,19 @@ export type ClarificationResponse = ResponseBase & {
 
 export type DataProvenance = { kind: "live" | "illustrative" | "mixed" | "unavailable"; label: string; as_of?: string | null };
 export type VisualMetric = { label: string; value: string; detail?: string | null };
+export type ResearchChartType =
+  | "line" | "line_multi"
+  | "bar" | "bar_horizontal" | "bar_multiple" | "bar_stacked" | "bar_negative"
+  | "donut" | "donut_text" | "pie_interactive" | "radial_stacked";
 export type DataChartBlock = {
   type: "data_chart";
-  chart_type: "line" | "bar" | "donut";
+  chart_type: ResearchChartType;
   title: string;
   unit: "percent" | "USD" | "EUR" | "USD_billions" | "EUR_billions" | "USD_millions" | "EUR_millions" | "count";
-  data: { label: string; value: number; source_ids: string[] }[];
+  data: { label: string; value: number; values?: Record<string, number>; source_ids: string[] }[];
+  series?: { key: string; name: string; color?: string }[];
+  center_label?: string;
+  center_value?: string;
   provenance: DataProvenance;
   source_ids: string[];
 };
@@ -175,6 +182,8 @@ export type VisualResearchResponseV2 = {
   intent_confidence?: number | null;
   title: string;
   summary: string;
+  closing_summary?: string;
+  follow_up_questions?: string[];
   blocks: VisualBlock[];
   sources: SourceReference[];
   unresolved_company_query?: string | null;
@@ -189,6 +198,8 @@ export type VisualResearchResponseV3 = {
   intent_confidence?: number | null;
   title: string;
   summary: string;
+  closing_summary?: string;
+  follow_up_questions?: string[];
   blocks: VisualBlock[];
   sources: SourceReference[];
   unresolved_company_query?: string | null;

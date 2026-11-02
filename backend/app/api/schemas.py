@@ -339,15 +339,28 @@ class FactGridBlock(BaseModel):
 class DataChartDatum(BaseModel):
     label: str
     value: float
+    values: dict[str, float] = Field(default_factory=dict)
     source_ids: list[str] = Field(default_factory=list)
+
+
+class DataChartSeries(BaseModel):
+    key: str
+    name: str
+    color: str | None = None
 
 
 class DataChartBlock(BaseModel):
     type: Literal["data_chart"]
-    chart_type: Literal["line", "bar", "donut"]
+    chart_type: Literal[
+        "line", "line_multi", "bar", "bar_horizontal", "bar_multiple", "bar_stacked",
+        "bar_negative", "donut", "donut_text", "pie_interactive", "radial_stacked",
+    ]
     title: str
     unit: Literal["percent", "USD", "EUR", "USD_billions", "EUR_billions", "USD_millions", "EUR_millions", "count"]
     data: list[DataChartDatum] = Field(min_length=2, max_length=24)
+    series: list[DataChartSeries] = Field(default_factory=list, max_length=8)
+    center_label: str | None = None
+    center_value: str | None = None
     provenance: DataProvenance
     source_ids: list[str] = Field(default_factory=list)
 
@@ -434,6 +447,8 @@ class VisualResearchResponse(BaseModel):
     intent_confidence: float | None = Field(default=None, ge=0, le=1)
     title: str
     summary: str
+    closing_summary: str = Field(min_length=1, max_length=700)
+    follow_up_questions: list[str] = Field(default_factory=list, max_length=3)
     blocks: list[VisualBlock] = Field(default_factory=list, max_length=12)
     sources: list[SourceReference] = Field(default_factory=list)
     unresolved_company_query: str | None = None

@@ -8,7 +8,7 @@ function CompanyHeader({ block }: { block: Extract<VisualBlock, { type: "company
     <div className="visual-company-mark" aria-hidden="true">{initials || block.company.ticker.slice(0, 2)}</div>
     <div className="visual-company-copy">
       <div className="visual-company-title"><h3>{block.company.name}</h3><span>{block.company.ticker}</span></div>
-      <p>{block.description}</p>
+      {block.description ? <p>{block.description}</p> : null}
       <small>{block.company.exchange} · US listed equity</small>
     </div>
   </section>;

@@ -5,7 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Activity, ArrowUp, CircleHelp, Command, MessageSquareText, Plus, ShieldCheck, Sparkles, Square, Trash2, PencilLine } from "lucide-react";
+import { ArrowUp, ChartCandlestick, CircleHelp, Command, MessageSquareText, PanelLeftClose, PanelLeftOpen, Plus, ReceiptText, Scale, ShieldCheck, Sparkles, Square, Trash2, PencilLine } from "lucide-react";
 import { ResearchResponseView } from "@/components/chat/ResearchResponseView";
 import type { CompanyIdentity, ResearchChatMessage, ResearchLayout, ResearchResponse, ResearchTool, SavedConversation } from "@/types/research";
 
@@ -18,12 +18,19 @@ const COMPONENT_LABELS: Record<string, string> = {
   comparison_table: "Comparison", fact_grid: "Reported results", data_chart: "Chart", answer_card: "Answer",
   takeaways: "Takeaways",
 };
-const SUGGESTIONS = [
-  { title: "Compare two companies", detail: "Recent performance, catalysts, and key differences", prompt: "Compare AMD and Alphabet using their recent market performance and news." },
-  { title: "Understand a market move", detail: "Use recent coverage to explain what may be driving it", prompt: "What recent news and market factors may explain the move in Tesla shares?" },
-  { title: "Research an industry", detail: "Find current developments and company implications", prompt: "What are the most important recent developments in the semiconductor industry?" },
-  { title: "Ask a finance question", detail: "Get a plain language explanation", prompt: "Explain the difference between free cash flow and operating cash flow." },
+const QUICK_PROMPTS = [
+  { label: "Apple margin trends", prompt: "How have Apple's gross margins changed over the last five years?", icon: SquareLetterAIcon },
+  { label: "Microsoft quarterly results", prompt: "Summarize Microsoft's latest quarterly results and the main drivers.", icon: ChartCandlestick },
+  { label: "NVIDIA market context", prompt: "What market factors and recent news may explain NVIDIA's share move?", icon: ReceiptText },
+  { label: "Compare two companies", prompt: "Compare the recent performance and business outlook for AMD and Intel.", icon: Scale },
 ];
+
+function SquareLetterAIcon({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="m8 16 4-9 4 9M9.5 13h5" />
+  </svg>;
+}
 
 function messageText(message: ResearchChatMessage): string {
   return message.parts.filter((part) => part.type === "text").map((part) => part.text).join("");
@@ -74,12 +81,18 @@ export function ResearchWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeUpdatedAt, setActiveUpdatedAt] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const anchorNextPromptRef = useRef(false);
   const activeIdRef = useRef(activeId);
   const chatCounterRef = useRef(0);
 
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 540px)").matches) setSidebarOpen(false);
+  }, []);
 
   const prepareTransportRequest = useCallback(({ messages }: { messages: ResearchChatMessage[] }) => {
     const latest = [...messages].reverse().find((message) => message.role === "user");
@@ -114,16 +127,20 @@ export function ResearchWorkspace() {
 
   useEffect(() => {
     let timer = 0;
+    const transferredPrompt = new URLSearchParams(window.location.search).get("prompt");
+    if (transferredPrompt) {
+      setInput(transferredPrompt.slice(0, 1200));
+      window.history.replaceState(null, "", "/");
+      timer = window.setTimeout(() => {
+        setHydrated(true);
+        composerRef.current?.focus();
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
     try {
       const saved = parseConversations(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]"));
       timer = window.setTimeout(() => {
         setConversations(saved);
-        if (saved[0]) {
-          activeIdRef.current = saved[0].id;
-          setActiveId(saved[0].id);
-          setActiveUpdatedAt(saved[0].updatedAt);
-          setMessages(saved[0].messages as ResearchChatMessage[]);
-        }
         setHydrated(true);
       }, 0);
     } catch {
@@ -134,8 +151,12 @@ export function ResearchWorkspace() {
   }, [setMessages]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, status]);
+    if (!anchorNextPromptRef.current) return;
+    const latestUserMessage = [...(scrollRef.current?.querySelectorAll<HTMLElement>(".v2-message-user") ?? [])].at(-1);
+    if (!latestUserMessage) return;
+    latestUserMessage.scrollIntoView({ block: "start", behavior: "smooth" });
+    anchorNextPromptRef.current = false;
+  }, [messages]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -153,6 +174,7 @@ export function ResearchWorkspace() {
     activeIdRef.current = id;
     setActiveId(id);
     setActiveUpdatedAt(new Date().toISOString());
+    anchorNextPromptRef.current = true;
     clearError();
     sendMessage({ text: prompt });
     setInput("");
@@ -161,6 +183,17 @@ export function ResearchWorkspace() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     submitPrompt(input);
+  }
+
+  function renderComposer(className: string) {
+    return <form className={className} onSubmit={onSubmit}>
+      <textarea ref={composerRef} value={input} rows={1} maxLength={1200} aria-label="Ask a research question" placeholder="Ask about a company, the market, or a recent move…" onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitPrompt(input); } }} disabled={busy} />
+      {busy ? <button type="button" className="v2-send-button stop" onClick={stop} aria-label="Stop response"><Square size={14} fill="currentColor" /></button> : <button type="submit" className="v2-send-button" disabled={!input.trim()} aria-label="Send message"><ArrowUp size={18} /></button>}
+    </form>;
+  }
+
+  function focusComposer() {
+    window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
   const newChat = useCallback(() => {
@@ -197,7 +230,7 @@ export function ResearchWorkspace() {
     function onShortcut(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        if (!busy) newChat();
+        if (!busy) { newChat(); focusComposer(); }
       }
     }
     window.addEventListener("keydown", onShortcut);
@@ -206,7 +239,7 @@ export function ResearchWorkspace() {
 
   return <main className={`v2-shell ${sidebarOpen ? "sidebar-visible" : "sidebar-collapsed"}`}>
     <aside className="v2-sidebar" aria-label="Chat history">
-      <div className="sidebar-brand-row"><a href="#home" className="v2-brand"><span className="v2-brand-mark"><Activity size={17} /></span><span>FinSight <em>AI</em></span></a><button className="sidebar-toggle" onClick={() => setSidebarOpen(false)} aria-label="Collapse sidebar">‹</button></div>
+      <div className="sidebar-brand-row"><a href="/" className="v2-brand" aria-label="Finsight AI home"><span className="v2-brand-mark" aria-hidden="true">*</span><span>Finsight AI</span></a>{sidebarOpen ? <button className="sidebar-toggle" onClick={() => setSidebarOpen(false)} aria-label="Collapse sidebar" title="Collapse sidebar"><PanelLeftClose size={17} /></button> : null}</div>
       <button className="new-chat-button" onClick={newChat}><Plus size={16} /> New chat <kbd>⌘ K</kbd></button>
       <div className="history-heading"><span>RECENT CHATS</span></div>
       <nav className="conversation-list" aria-label="Recent chats">
@@ -216,27 +249,31 @@ export function ResearchWorkspace() {
         </div>)}
         {visibleConversations.length === 0 ? <p className="history-empty">Your chats are saved in this browser.</p> : null}
       </nav>
-      <div className="sidebar-bottom"><div className="local-history-note"><ShieldCheck size={14} /><span>Private to this browser<br />No account or server history</span></div><button className="sidebar-help" title="Research and educational tool"><CircleHelp size={15} /> About this workspace</button></div>
+      <div className="sidebar-bottom"><div className="local-history-note"><ShieldCheck size={14} /><span>Private to this browser<br />No account or server history</span></div><a className="sidebar-help" href="/documentation"><CircleHelp size={15} /> Documentation</a></div>
     </aside>
     {sidebarOpen ? <button className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Close chat history" /> : null}
 
     <section className="v2-main" id="home">
-      <header className="v2-topbar">
-        {!sidebarOpen ? <button className="sidebar-toggle topbar-expand" onClick={() => setSidebarOpen(true)} aria-label="Expand sidebar">☰</button> : null}
-        <div className="v2-breadcrumb"><span>FinSight AI</span><i>/</i><strong>{activeConversation?.title ?? "Research chat"}</strong></div>
-        <span className="text-only-label"><Sparkles size={13} /> VISUAL RESEARCH</span>
-      </header>
+      {!sidebarOpen ? <button className="sidebar-expand-floating" onClick={() => setSidebarOpen(true)} aria-label="Expand sidebar" title="Expand sidebar"><PanelLeftOpen size={18} /></button> : null}
+      {hasConversation ? <header className="v2-topbar">
+        <div className="v2-breadcrumb"><span>Finsight AI</span><i>/</i><strong>{activeConversation?.title ?? "Research chat"}</strong></div>
+        <span className="text-only-label"><i /> COMPONENT-DRIVEN RESEARCH</span>
+      </header> : null}
 
       <div className={`v2-conversation ${hasConversation ? "with-messages" : "welcome-state"}`} ref={scrollRef}>
         {!hasConversation ? <section className="v2-welcome">
-          <div className="v2-welcome-kicker"><span /> OPEN-ENDED EQUITY RESEARCH</div>
-          <h1>Ask a question.<br /><span>Get a grounded answer.</span></h1>
-          <p>Claude interprets your question, selects relevant market, news, and web research, then writes a source-grounded response.</p>
-          <div className="welcome-search-hint"><Command size={15} /><span>Ask about one company, compare several, or ask a general finance question.</span></div>
-          <div className="v2-suggestions">
-            {SUGGESTIONS.map((suggestion, index) => <button className="v2-suggestion" key={suggestion.title} onClick={() => submitPrompt(suggestion.prompt)} disabled={busy}>
-              <span className="suggestion-number">0{index + 1}</span><span><strong>{suggestion.title}</strong><small>{suggestion.detail}</small></span><span className="suggestion-arrow">↗</span>
-            </button>)}
+          <div className="landing-content">
+            <h1>Hi, I'm Finsight. Where should we start?</h1>
+            {renderComposer("v2-composer welcome-composer")}
+            <div className="welcome-suggestions" aria-label="Suggested prompts">
+              {QUICK_PROMPTS.map((item) => {
+                const PromptIcon = item.icon;
+                return <button key={item.label} onClick={() => submitPrompt(item.prompt)} disabled={busy}>
+                  <span className="suggestion-company-icon"><PromptIcon size={17} strokeWidth={1.8} /></span>
+                  <span className="suggestion-label">{item.label}</span><ArrowUp className="suggestion-arrow-icon" size={13} />
+                </button>;
+              })}
+            </div>
           </div>
         </section> : <div className="v2-message-thread">
           {messages.map((message, messageIndex) => {
@@ -248,12 +285,14 @@ export function ResearchWorkspace() {
             const layout = message.role === "assistant" ? researchLayout(message) : null;
             return <article className={`v2-message v2-message-${message.role}`} key={message.id}>
               {message.role === "user" ? <><div className="v2-user-label">YOU</div><div className="v2-user-text"><ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown></div></> : <>
-                <div className="v2-answer-heading"><span className="answer-avatar"><Sparkles size={15} /></span><div><strong>FinSight</strong><small>Research assistant</small></div></div>
+                <div className="v2-answer-heading"><span className="answer-avatar"><Sparkles size={15} /></span><div><strong>Finsight</strong><small>Research assistant</small></div></div>
                 {latestAssistant && busy && statuses.length ? <div className="source-status-row">{statuses.map(({ tool }) => <span className="source-status status-running" key={tool}><i />{TOOL_LABELS[tool]} · running</span>)}</div> : null}
                 {latestAssistant && busy && !statuses.length && stage ? <div className="source-status-row"><span className="source-status status-running"><i />{stage}</span></div> : null}
                 {latestAssistant && busy && layout ? <div className="research-layout-preview" aria-live="polite"><span>Response layout</span>{layout.components.map((component) => COMPONENT_LABELS[component] ? <i key={component}>{COMPONENT_LABELS[component]}</i> : null)}</div> : null}
                 {response ? <ResearchResponseView
                   response={response}
+                  copyText={text}
+                  onFollowUp={submitPrompt}
                   onResolveCompany={(company: CompanyIdentity) => {
                     const originalPrompt = [...messages.slice(0, messageIndex)].reverse().find((item) => item.role === "user");
                     submitPrompt(`I meant ${company.name} (${company.ticker}). Please continue with my previous request: ${originalPrompt ? messageText(originalPrompt) : "research this company"}`);
@@ -267,13 +306,10 @@ export function ResearchWorkspace() {
         </div>}
       </div>
 
-      <footer className="v2-composer-area">
-        <form className="v2-composer" onSubmit={onSubmit}>
-          <textarea value={input} rows={1} maxLength={1200} aria-label="Ask a research question" placeholder="Ask about a company, several companies, a market move, or finance…" onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitPrompt(input); } }} disabled={busy} />
-          {busy ? <button type="button" className="v2-send-button stop" onClick={stop} aria-label="Stop response"><Square size={14} fill="currentColor" /></button> : <button type="submit" className="v2-send-button" disabled={!input.trim()} aria-label="Send message"><ArrowUp size={18} /></button>}
-        </form>
+      {hasConversation ? <footer className="v2-composer-area">
+        {renderComposer("v2-composer")}
         <div className="v2-composer-meta"><span><Command size={12} /> Enter to send · Shift + Enter for a new line</span><span>AI selects the response layout</span></div>
-      </footer>
+      </footer> : null}
     </section>
   </main>;
 }

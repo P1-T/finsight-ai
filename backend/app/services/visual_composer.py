@@ -12,6 +12,7 @@ from app.api.schemas import (
     ComparisonTableBlock,
     DataChartBlock,
     DataChartDatum,
+    DataChartSeries,
     DataProvenance,
     FactGridBlock,
     FactGridMetric,
@@ -94,6 +95,71 @@ def _narrative_summary(response: Any) -> str:
     return str(getattr(narrative, "summary", getattr(narrative, "answer", getattr(narrative, "question", ""))))
 
 
+def _follow_up_question_defaults(response: Any, companies: list[Company]) -> list[str]:
+    names = [company.name for company in companies[:2]]
+    entity = " and ".join(names) if names else "this company"
+    defaults_by_template = {
+        "company_analysis": [
+            f"What were {entity}'s main drivers in its latest quarter?",
+            f"What recent developments could affect {entity}?",
+            f"How does {entity} compare with its closest peers?",
+        ],
+        "stock_comparison": [
+            "Which company has stronger recent momentum?",
+            "How do their latest quarterly results compare?",
+            "What are the main risks that differ between them?",
+        ],
+        "quarterly_performance": [
+            f"What drove {entity}'s reported results?",
+            f"How did the latest quarter compare with the prior year?",
+            f"What should I watch in {entity}'s next results?",
+        ],
+        "news_analysis": [
+            "Which recent catalysts matter most?",
+            "How has the market reacted to these developments?",
+            "What upcoming events could change this view?",
+        ],
+        "technical_analysis": [
+            "How has the trend changed over the past six months?",
+            "Which price levels have mattered most recently?",
+            "How does the recent move compare with its peers?",
+        ],
+        "clarification": [
+            "Would you like to focus on company fundamentals or share performance?",
+            "Should I include recent news in the analysis?",
+            "Would a comparison with another company be useful?",
+        ],
+    }
+    if response.template in defaults_by_template:
+        return defaults_by_template[response.template]
+    return [
+        f"What are the main risks and counterpoints for {entity}?",
+        f"How does the recent evidence compare with {entity}'s longer-term trend?",
+        f"Which upcoming developments should I watch for {entity}?",
+    ]
+
+
+def _normalize_follow_up_questions(values: list[str] | None, response: Any, companies: list[Company]) -> list[str]:
+    questions: list[str] = []
+    for raw in values or []:
+        question = " ".join(str(raw).split()).strip()
+        if not question:
+            continue
+        question = question[:140].rstrip(" .")
+        if not question.endswith("?"):
+            question += "?"
+        if question.casefold() not in {item.casefold() for item in questions}:
+            questions.append(question)
+        if len(questions) == 3:
+            break
+    for question in _follow_up_question_defaults(response, companies):
+        if len(questions) == 3:
+            break
+        if question.casefold() not in {item.casefold() for item in questions}:
+            questions.append(question)
+    return questions
+
+
 def _company_identity(company: Any) -> CompanyIdentity:
     return CompanyIdentity(ticker=company.ticker, name=company.name, exchange=company.exchange)
 
@@ -166,6 +232,46 @@ def _market_breadth_chart() -> DataChartBlock:
         data=[DataChartDatum(label=label, value=value) for label, value in (("Large-cap", 1.8), ("Mid-cap", 0.9), ("Small-cap", -0.4))],
         provenance=DataProvenance(kind="illustrative", label="Market breadth example"),
     )
+
+
+def _visual_variety_candidates(ticker: str) -> list[DataChartBlock]:
+    """Build the chart catalog from one coherent, explicitly illustrative fixture."""
+    origin = DataProvenance(kind="illustrative", label="Visual example")
+    series = [
+        DataChartSeries(key="revenue", name="Revenue", color="#4f6bed"),
+        DataChartSeries(key="profit", name="Operating profit", color="#168c80"),
+        DataChartSeries(key="cashflow", name="Free cash flow", color="#8061c9"),
+    ]
+    history = [
+        DataChartDatum(label=period, value=revenue, values={"revenue": revenue, "profit": profit, "cashflow": cashflow})
+        for period, revenue, profit, cashflow in (
+            ("FY 1", 72, 15, 11), ("FY 2", 81, 18, 13),
+            ("FY 3", 94, 22, 17), ("FY 4", 108, 27, 21),
+        )
+    ]
+    mix = [
+        DataChartDatum(label=label, value=value)
+        for label, value in (("Core products", 46), ("Cloud and services", 29), ("Subscriptions", 17), ("Other", 8))
+    ]
+    variants: list[DataChartBlock] = [
+        DataChartBlock(type="data_chart", chart_type="bar_horizontal", title=f"Operating profile · {ticker}", unit="percent",
+            data=[DataChartDatum(label=label, value=value) for label, value in (("Revenue growth", 18), ("Gross margin", 62), ("Operating margin", 28), ("Cash-flow margin", 19))], provenance=origin),
+        DataChartBlock(type="data_chart", chart_type="bar_multiple", title=f"Financial trend · {ticker}", unit="USD_billions", data=history, series=series, provenance=origin),
+        DataChartBlock(type="data_chart", chart_type="bar_stacked", title=f"Revenue composition trend · {ticker}", unit="USD_billions",
+            data=[DataChartDatum(label=period, value=total, values={"products": products, "services": services, "other": other}) for period, products, services, other, total in (("FY 1", 48, 26, 8, 82), ("FY 2", 52, 31, 9, 92), ("FY 3", 57, 36, 11, 104))],
+            series=[DataChartSeries(key="products", name="Products", color="#4f6bed"), DataChartSeries(key="services", name="Cloud and services", color="#168c80"), DataChartSeries(key="other", name="Other", color="#bd842d")], provenance=origin),
+        DataChartBlock(type="data_chart", chart_type="bar_negative", title=f"Return comparison · {ticker}", unit="percent",
+            data=[DataChartDatum(label=label, value=value) for label, value in (("Latest session", 1.4), ("5 sessions", -2.1), ("20 sessions", 4.8), ("Quarter", -3.6))], provenance=origin),
+        DataChartBlock(type="data_chart", chart_type="line_multi", title=f"Growth and profitability · {ticker}", unit="percent",
+            data=[DataChartDatum(label=period, value=growth, values={"growth": growth, "margin": margin}) for period, growth, margin in (("FY 1", 8, 21), ("FY 2", 11, 23), ("FY 3", 15, 25), ("FY 4", 18, 28))],
+            series=[DataChartSeries(key="growth", name="Revenue growth", color="#4f6bed"), DataChartSeries(key="margin", name="Operating margin", color="#168c80")], provenance=origin),
+        DataChartBlock(type="data_chart", chart_type="donut_text", title=f"Business mix · {ticker}", unit="percent", data=mix, center_label="Illustrative mix", center_value="100%", provenance=origin),
+        DataChartBlock(type="data_chart", chart_type="pie_interactive", title=f"Revenue segments · {ticker}", unit="percent", data=mix, provenance=origin),
+        DataChartBlock(type="data_chart", chart_type="radial_stacked", title=f"Operating indicators · {ticker}", unit="percent",
+            data=[DataChartDatum(label=label, value=value) for label, value in (("Gross margin", 62), ("Operating margin", 28), ("Cash-flow margin", 19))],
+            series=[DataChartSeries(key="gross", name="Gross margin", color="#4f6bed"), DataChartSeries(key="operating", name="Operating margin", color="#168c80"), DataChartSeries(key="cash", name="Cash-flow margin", color="#8061c9")], provenance=origin),
+    ]
+    return variants
 
 
 def _generic_chart(prompt: str, preferred_types: list[str]) -> DataChartBlock:
@@ -463,6 +569,8 @@ def compose_visual_response(
     chart_types: list[str] | None = None,
     intent_id: str | None = None,
     intent_confidence: float | None = None,
+    closing_summary: str | None = None,
+    follow_up_questions: list[str] | None = None,
 ) -> VisualResearchResponse:
     summary = _narrative_summary(response)
     blocks: list[Any] = []
@@ -497,11 +605,11 @@ def compose_visual_response(
             has_research_source = any(source.id.startswith("SRC-") for source in response.sources)
             header_provenance = DataProvenance(
                 kind="live" if has_research_source else "illustrative",
-                label="Research summary" if has_research_source else "Company overview",
+                label="Company research" if has_research_source else "Company profile",
             )
             blocks.append(CompanyHeaderBlock(
                 type="company_header", company=_company_identity(company_for_header),
-                description=summary or "Company overview.", provenance=header_provenance,
+                description="", provenance=header_provenance,
             ))
         for company in rendered_companies:
             snapshot = snapshots.get(company.ticker)
@@ -641,10 +749,12 @@ def compose_visual_response(
                     if chart is not None
                 ]
                 candidates.append(_cash_debt_chart(demo, selected_company.ticker))
+                candidates.extend(_visual_variety_candidates(selected_company.ticker))
             else:
                 candidates = [
                     _generic_chart(prompt, [kind]) for kind in ("line", "bar", "donut")
                 ] + [_market_breadth_chart()]
+                candidates.extend(_visual_variety_candidates("MARKET"))
             rank = {kind: index for index, kind in enumerate(chart_types or [])}
             candidates.sort(key=lambda chart: rank.get(chart.chart_type, len(rank)))
             for chart in candidates:
@@ -686,6 +796,8 @@ def compose_visual_response(
         intent_confidence=intent_confidence,
         title=response.title,
         summary=summary,
+        closing_summary=" ".join((closing_summary or summary or "Research completed.").split())[:700],
+        follow_up_questions=_normalize_follow_up_questions(follow_up_questions, response, companies),
         blocks=blocks,
         sources=response.sources,
         unresolved_company_query=getattr(response, "unresolved_company_query", None),
