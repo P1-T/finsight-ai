@@ -5,7 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, ChartCandlestick, CircleHelp, Command, MessageSquareText, PanelLeftClose, PanelLeftOpen, Plus, ReceiptText, Scale, ShieldCheck, Sparkles, Square, Trash2, PencilLine } from "lucide-react";
+import { Asterisk, ArrowUp, ChartCandlestick, CircleHelp, Command, MessageSquareText, PanelLeftClose, PanelLeftOpen, Plus, ReceiptText, Scale, ShieldCheck, Sparkles, Square, Trash2, PencilLine } from "lucide-react";
 import { ResearchResponseView } from "@/components/chat/ResearchResponseView";
 import type { CompanyIdentity, ResearchChatMessage, ResearchLayout, ResearchResponse, ResearchTool, SavedConversation } from "@/types/research";
 
@@ -81,7 +81,7 @@ export function ResearchWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeUpdatedAt, setActiveUpdatedAt] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const anchorNextPromptRef = useRef(false);
@@ -89,10 +89,6 @@ export function ResearchWorkspace() {
   const chatCounterRef = useRef(0);
 
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
-
-  useEffect(() => {
-    if (window.matchMedia("(max-width: 540px)").matches) setSidebarOpen(false);
-  }, []);
 
   const prepareTransportRequest = useCallback(({ messages }: { messages: ResearchChatMessage[] }) => {
     const latest = [...messages].reverse().find((message) => message.role === "user");
@@ -263,6 +259,7 @@ export function ResearchWorkspace() {
       <div className={`v2-conversation ${hasConversation ? "with-messages" : "welcome-state"}`} ref={scrollRef}>
         {!hasConversation ? <section className="v2-welcome">
           <div className="landing-content">
+            <div className="landing-asterisk"><Asterisk size={112} strokeWidth={3.25} aria-hidden="true" /></div>
             <h1>Hi, I'm Finsight. Where should we start?</h1>
             {renderComposer("v2-composer welcome-composer")}
             <div className="welcome-suggestions" aria-label="Suggested prompts">
