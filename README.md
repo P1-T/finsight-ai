@@ -138,4 +138,41 @@ npm run build
 
 Automated tests mock LLMs and external providers. They do not require live data or paid API calls.
 
+## LangSmith evaluation pipeline
+
+FinSight includes an opt-in, versioned LangSmith benchmark with exactly 10 golden prompts. It exercises the real LangGraph planner, retrieval routing, synthesis, and typed visual response contract. The target still calls Claude, while company lookup and web/news/market tools are replaced with checked-in, fixed synthetic evidence. This keeps results repeatable and avoids SEC, Yahoo Finance, and DuckDuckGo variability during a run.
+
+The evaluation records deterministic scores for template selection, entity resolution, tool selection/policy, clarification behavior, response-schema validity, fallback use, and citation integrity. An OpenEvals LLM judge scores answer relevance, evidence support, completeness, and uncertainty handling against each case's reference expectations. The judge does not reward longer answers or formatting. LangSmith records the examples, run outputs, feedback, and traces for comparison across model or prompt changes.
+
+### Configure and run
+
+Add these values to `backend/.env` (the example file lists the same fields). Keep both API keys private and backend-only:
+
+```dotenv
+ANTHROPIC_API_KEY=your-anthropic-key
+LANGSMITH_API_KEY=your-langsmith-key
+LANGSMITH_PROJECT=finsight-evals
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_WORKSPACE_ID=
+LANGSMITH_EVAL_DATASET=FinSight Golden Evaluation v1
+LANGSMITH_EVAL_JUDGE_MODEL=claude-haiku-4-5-20251001
+```
+
+Use the LangSmith workspace that owns the API key. If the key is organization-scoped, set `LANGSMITH_WORKSPACE_ID` to the target workspace ID. For an EU-hosted workspace, set `LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com`; the default endpoint is for the standard US instance.
+
+From PowerShell, install the updated backend dependencies, sync the immutable dataset once, then run the benchmark:
+
+```powershell
+cd backend
+.\.venv313\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv313\Scripts\python.exe -m app.evals.sync_dataset
+.\.venv313\Scripts\python.exe -m app.evals.run
+```
+
+The sync command is idempotent. It creates the named LangSmith dataset and its 10 examples if absent. If a remote dataset with that name has changed or contains unexpected cases, the command stops instead of overwriting/deleting examples; choose a new `LANGSMITH_EVAL_DATASET` name for a new benchmark version.
+
+A full run makes approximately 20 application Claude calls (planner and synthesis for each case) plus 10 judge calls. The model and judge use separate configuration fields but the same Anthropic API key/account by default. LangSmith tracing is enabled only inside the evaluation runner; normal application startup remains untraced unless separately configured. Evaluation prompts, synthetic evidence, outputs, and traces are sent to LangSmith, so do not add private user conversations or secrets to the golden set.
+
+The checked-in benchmark is a starter baseline, not proof of production quality. Review case-level comments and deterministic failures before changing prompts. Expand or revise the golden set deliberately, version it, and compare experiments before accepting changes. These fixtures and their `example.com` links are evaluation-only; they are not real market evidence and are never used by ordinary chat requests.
+
 

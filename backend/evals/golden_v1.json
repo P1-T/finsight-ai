@@ -1,0 +1,165 @@
+[
+  {
+    "case_id": "company-analysis-tsla",
+    "category": "company_analysis",
+    "fixture_id": "tsla_company",
+    "prompt": "Analyze Tesla stock using its recent business news and market performance.",
+    "history": [],
+    "expectations": {
+      "templates": ["company_analysis"],
+      "tickers": ["TSLA"],
+      "required_tools": ["market_data", "web_search", "news_search"],
+      "allowed_tools": ["market_data", "web_search", "news_search"],
+      "clarification": false,
+      "reference_answer": "The frozen evidence fixture reports a $250.00 latest close as of 2025-12-30, a 1.2% daily decline, and 2.4% growth in the five-session period. The supplied company update describes delivery growth while the news snippet reports margin pressure. A good answer separates those facts from its conditional interpretation and does not forecast a return.",
+      "rubric": "Answer the company-analysis request. Cover the evidence-backed business catalyst and risk, distinguish reported evidence from interpretation, and do not turn the short price history into a forecast."
+    }
+  },
+  {
+    "case_id": "comparison-amd-intc",
+    "category": "comparison",
+    "fixture_id": "amd_intc_comparison",
+    "prompt": "Compare AMD and Intel's recent share performance and the main business catalysts.",
+    "history": [],
+    "expectations": {
+      "templates": ["stock_comparison"],
+      "tickers": ["AMD", "INTC"],
+      "required_tools": ["market_data", "web_search"],
+      "allowed_tools": ["market_data", "web_search", "news_search"],
+      "clarification": false,
+      "reference_answer": "Use both supplied market snapshots: AMD closed at $150.00 and gained 3.0% over 20 sessions; Intel closed at $40.00 and lost 2.0%. The web evidence describes AMD data-center demand and Intel foundry investment. Explain the differing evidence and avoid claiming one company is categorically superior.",
+      "rubric": "Compare both named companies, use their separate market snapshots, and explain the evidence-backed business contrast without mixing tickers or inventing facts."
+    }
+  },
+  {
+    "case_id": "educational-pe-definition",
+    "category": "educational_no_tools",
+    "fixture_id": "empty",
+    "prompt": "What does a price-to-earnings ratio tell me, and what are its limitations?",
+    "history": [],
+    "expectations": {
+      "templates": ["research_answer"],
+      "tickers": [],
+      "required_tools": [],
+      "allowed_tools": [],
+      "clarification": false,
+      "reference_answer": "The P/E ratio compares a company's share price with earnings per share. It is a valuation shorthand, not intrinsic value: it can be misleading when earnings are negative, unusually high or low, or measured on inconsistent periods. Comparisons should consider growth, business mix, and accounting differences.",
+      "rubric": "Give a concise, accurate educational explanation and limitations. This does not require company lookup or market-data tools."
+    }
+  },
+  {
+    "case_id": "contextual-followup-crm-risk",
+    "category": "multi_turn_follow_up",
+    "fixture_id": "crm_risks",
+    "prompt": "What are the biggest risks to that outlook?",
+    "history": [
+      {"role": "user", "text": "Summarize Salesforce's recent business outlook."},
+      {"role": "assistant", "text": "Salesforce described continued subscription growth and investment in AI products."}
+    ],
+    "expectations": {
+      "templates": ["risk_analysis"],
+      "tickers": ["CRM"],
+      "required_tools": ["web_search"],
+      "allowed_tools": ["market_data", "web_search", "news_search"],
+      "clarification": false,
+      "reference_answer": "Resolve 'that outlook' to Salesforce (CRM). The fixture evidence identifies slower enterprise deal cycles and rising infrastructure spending as risks. Explain these conditionally and do not switch to another company's outlook or claim a certain share-price effect.",
+      "rubric": "Resolve the pronoun from conversation history, answer the risk follow-up directly, preserve Salesforce as the entity, and distinguish evidence from possible implications."
+    }
+  },
+  {
+    "case_id": "quarterly-adbe-results",
+    "category": "quarterly_results",
+    "fixture_id": "adbe_quarterly",
+    "prompt": "How did Adobe perform in the latest reported quarter?",
+    "history": [],
+    "expectations": {
+      "templates": ["quarterly_performance"],
+      "tickers": ["ADBE"],
+      "required_tools": ["web_search"],
+      "allowed_tools": ["market_data", "web_search", "news_search"],
+      "clarification": false,
+      "reference_answer": "The fixture labels the report Q4 FY2025. It states revenue of $6.2 billion, up 8% year over year, and adjusted EPS of $5.50. A good answer identifies the period and comparison basis and only includes figures present in the quoted evidence.",
+      "rubric": "Report only explicitly supplied quarterly figures, preserve fiscal period and year-over-year basis, and do not add unsupported results or guidance."
+    }
+  },
+  {
+    "case_id": "news-uber",
+    "category": "news_analysis",
+    "fixture_id": "uber_news",
+    "prompt": "What are the most important recent headlines about Uber and why might they matter?",
+    "history": [],
+    "expectations": {
+      "templates": ["news_analysis"],
+      "tickers": ["UBER"],
+      "required_tools": ["news_search"],
+      "allowed_tools": ["news_search", "web_search"],
+      "clarification": false,
+      "reference_answer": "The retrieved headlines describe expanded grocery delivery in two cities and a regulatory review of driver classification. Explain the potential business relevance as interpretation, retain the distinction between reported headlines and implications, and do not claim the headlines predict share returns.",
+      "rubric": "Summarize both relevant news items, connect each to a plausible but clearly interpretive business implication, and avoid treating sentiment as a return forecast."
+    }
+  },
+  {
+    "case_id": "ambiguous-oracle-listing",
+    "category": "entity_ambiguity",
+    "fixture_id": "oracle_ambiguous",
+    "prompt": "Analyze Oracle Corp stock.",
+    "history": [],
+    "expectations": {
+      "templates": ["clarification"],
+      "tickers": [],
+      "required_tools": [],
+      "allowed_tools": [],
+      "clarification": true,
+      "reference_answer": "The company directory fixture contains two Oracle Corp listings, ORCL and ORCL-PD. Ask the user to select the intended listing before researching; do not choose one silently or retrieve market data for either.",
+      "rubric": "Recognize the duplicate company-name listings, request a clear ticker choice, and do not fabricate or retrieve an analysis before resolving the ambiguity."
+    }
+  },
+  {
+    "case_id": "market-reaction-coin",
+    "category": "market_reaction",
+    "fixture_id": "coin_move",
+    "prompt": "What recent news and market factors may explain Coinbase shares moving this week?",
+    "history": [],
+    "expectations": {
+      "templates": ["market_reaction"],
+      "tickers": ["COIN"],
+      "required_tools": ["market_data", "news_search"],
+      "allowed_tools": ["market_data", "web_search", "news_search"],
+      "clarification": false,
+      "reference_answer": "The fixture market data shows COIN down 4% over five sessions as of 2025-12-30. The news fixture reports a dated regulatory announcement. Describe the timing and possible relationship without claiming causation unless the evidence supports it; identify that the price data is historical.",
+      "rubric": "Use the dated market move and relevant news, distinguish temporal association from causation, and state that daily data is historical rather than live."
+    }
+  },
+  {
+    "case_id": "macro-rates-regional-banks",
+    "category": "macro_sensitivity",
+    "fixture_id": "empty",
+    "prompt": "How might falling interest rates affect US regional banks over the next year?",
+    "history": [],
+    "expectations": {
+      "templates": ["macro_sensitivity", "research_answer"],
+      "tickers": [],
+      "required_tools": [],
+      "allowed_tools": ["web_search", "news_search"],
+      "clarification": false,
+      "reference_answer": "Lower rates can reduce funding costs but may also compress net interest margins as loan yields reprice. Effects vary with deposit costs, asset duration, hedges, credit quality, and the pace of rate cuts. This is a conditional sector framework, not a directional prediction.",
+      "rubric": "Explain competing channels and company-level variation, use conditional language, and do not invent a current rate outlook or assert a guaranteed stock response."
+    }
+  },
+  {
+    "case_id": "options-pltr-data-limit",
+    "category": "unsupported_data_need",
+    "fixture_id": "pltr_search",
+    "prompt": "What does today's options flow say about the next move in Palantir?",
+    "history": [],
+    "expectations": {
+      "templates": ["options_activity"],
+      "tickers": ["PLTR"],
+      "required_tools": ["web_search"],
+      "allowed_tools": ["market_data", "web_search", "news_search"],
+      "clarification": false,
+      "reference_answer": "The fixture contains no dated options-flow metrics, so the response should say that options positioning cannot be assessed from the available evidence. It may summarize the dated company announcement in the fixture, but must not infer a next move or substitute ordinary share-price data for options flow.",
+      "rubric": "Be explicit that the required options-flow evidence is unavailable, avoid predicting the next move, and only summarize unrelated supplied evidence if it helps answer the request."
+    }
+  }
+]

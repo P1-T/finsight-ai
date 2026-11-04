@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 60
     research_timeout_seconds: float = 90
     chat_history_messages: int = 4
+    langsmith_api_key: str = ""
+    langsmith_project: str = "finsight-evals"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_workspace_id: str = ""
+    langsmith_eval_dataset: str = "FinSight Golden Evaluation v1"
+    langsmith_eval_judge_model: str = "claude-haiku-4-5-20251001"
 
 
 @lru_cache

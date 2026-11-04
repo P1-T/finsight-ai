@@ -1,0 +1,65 @@
+{
+  "empty": {
+    "companies": [],
+    "market_data": [],
+    "web_search": [],
+    "news_search": []
+  },
+  "tsla_company": {
+    "companies": [{"ticker": "TSLA", "name": "Tesla, Inc.", "exchange": "Nasdaq"}],
+    "market_data": [{"id": "MKT-TSLA", "type": "market_data", "ticker": "TSLA", "company": "Tesla, Inc.", "as_of_date": "2025-12-30", "period": "6mo", "metrics": {"latest_close": 250.0, "daily_pct_change": -1.2, "return_5d": 2.4, "return_20d": 3.1, "sma20": 247.5, "sma50": 239.0}, "recent_daily_closes": [{"date": "2025-12-23", "close": 244.0}, {"date": "2025-12-24", "close": 246.0}, {"date": "2025-12-26", "close": 248.0}, {"date": "2025-12-29", "close": 253.04}, {"date": "2025-12-30", "close": 250.0}]}],
+    "web_search": [{"type": "web_result", "title": "Tesla quarterly update: delivery growth and margin trends", "source": "Evaluation fixture", "published_at": "2025-12-18T12:00:00Z", "url": "https://example.com/finsight-eval/tsla-quarterly-update", "snippet": "Tesla's quarterly update describes vehicle deliveries growing 6% year over year. The same update reports gross margin falling 1.2 percentage points as price reductions continued.", "matched_companies": ["TSLA"]}],
+    "news_search": [{"type": "news", "title": "Tesla expands charging access with new regional partners", "source": "Evaluation fixture", "published_at": "2025-12-29T10:00:00Z", "url": "https://example.com/finsight-eval/tsla-charging-partners", "snippet": "Tesla announced two regional charging-network partnerships on December 29, 2025.", "matched_companies": ["TSLA"]}]
+  },
+  "amd_intc_comparison": {
+    "companies": [{"ticker": "AMD", "name": "Advanced Micro Devices, Inc.", "exchange": "Nasdaq"}, {"ticker": "INTC", "name": "Intel Corporation", "exchange": "Nasdaq"}],
+    "market_data": [
+      {"id": "MKT-AMD", "type": "market_data", "ticker": "AMD", "company": "Advanced Micro Devices, Inc.", "as_of_date": "2025-12-30", "period": "6mo", "metrics": {"latest_close": 150.0, "daily_pct_change": 0.7, "return_5d": 1.1, "return_20d": 3.0, "sma20": 148.0, "sma50": 143.0}, "recent_daily_closes": [{"date": "2025-12-23", "close": 145.0}, {"date": "2025-12-30", "close": 150.0}]},
+      {"id": "MKT-INTC", "type": "market_data", "ticker": "INTC", "company": "Intel Corporation", "as_of_date": "2025-12-30", "period": "6mo", "metrics": {"latest_close": 40.0, "daily_pct_change": -0.4, "return_5d": -0.8, "return_20d": -2.0, "sma20": 41.0, "sma50": 43.0}, "recent_daily_closes": [{"date": "2025-12-23", "close": 40.8}, {"date": "2025-12-30", "close": 40.0}]}
+    ],
+    "web_search": [
+      {"type": "web_result", "title": "AMD reports data-center accelerator demand", "source": "Evaluation fixture", "published_at": "2025-12-15T10:00:00Z", "url": "https://example.com/finsight-eval/amd-demand", "snippet": "AMD's update says data-center revenue increased 24% year over year, while management cited stronger accelerator demand.", "matched_companies": ["AMD"]},
+      {"type": "web_result", "title": "Intel outlines foundry investment schedule", "source": "Evaluation fixture", "published_at": "2025-12-16T10:00:00Z", "url": "https://example.com/finsight-eval/intc-foundry", "snippet": "Intel's update describes continued investment in foundry capacity and says the program remains capital intensive.", "matched_companies": ["INTC"]}
+    ],
+    "news_search": []
+  },
+  "crm_risks": {
+    "companies": [{"ticker": "CRM", "name": "Salesforce, Inc.", "exchange": "NYSE"}],
+    "market_data": [{"id": "MKT-CRM", "type": "market_data", "ticker": "CRM", "company": "Salesforce, Inc.", "as_of_date": "2025-12-30", "period": "6mo", "metrics": {"latest_close": 310.0, "daily_pct_change": 0.2, "return_5d": 1.0, "return_20d": 2.0, "sma20": 307.0, "sma50": 300.0}, "recent_daily_closes": [{"date": "2025-12-23", "close": 306.0}, {"date": "2025-12-30", "close": 310.0}]}],
+    "web_search": [{"type": "web_result", "title": "Salesforce discusses enterprise deal timing and AI infrastructure spend", "source": "Evaluation fixture", "published_at": "2025-12-20T10:00:00Z", "url": "https://example.com/finsight-eval/crm-deal-timing", "snippet": "Salesforce commentary notes that large enterprise deal cycles remain uneven and that infrastructure spending is increasing as AI features expand.", "matched_companies": ["CRM"]}],
+    "news_search": [{"type": "news", "title": "Salesforce expands AI assistant availability", "source": "Evaluation fixture", "published_at": "2025-12-22T10:00:00Z", "url": "https://example.com/finsight-eval/crm-ai-assistant", "snippet": "Salesforce announced broader availability of its AI assistant to enterprise customers.", "matched_companies": ["CRM"]}]
+  },
+  "adbe_quarterly": {
+    "companies": [{"ticker": "ADBE", "name": "Adobe Inc.", "exchange": "Nasdaq"}],
+    "market_data": [],
+    "web_search": [{"type": "web_result", "title": "Adobe reports fourth-quarter fiscal 2025 results", "source": "Evaluation fixture", "published_at": "2025-12-11T10:00:00Z", "url": "https://example.com/finsight-eval/adbe-q4-fy25", "snippet": "Adobe reported Q4 FY2025 revenue of $6.2 billion, up 8% year over year, and adjusted earnings per share of $5.50.", "matched_companies": ["ADBE"]}],
+    "news_search": []
+  },
+  "uber_news": {
+    "companies": [{"ticker": "UBER", "name": "Uber Technologies, Inc.", "exchange": "NYSE"}],
+    "market_data": [],
+    "web_search": [],
+    "news_search": [
+      {"type": "news", "title": "Uber expands grocery delivery in two cities", "source": "Evaluation fixture", "published_at": "2025-12-20T09:00:00Z", "url": "https://example.com/finsight-eval/uber-grocery", "snippet": "Uber announced grocery delivery expansion to two additional cities on December 20, 2025.", "matched_companies": ["UBER"]},
+      {"type": "news", "title": "Driver classification review adds regulatory uncertainty", "source": "Evaluation fixture", "published_at": "2025-12-21T09:00:00Z", "url": "https://example.com/finsight-eval/uber-classification", "snippet": "A regulator opened a review of driver classification rules affecting app-based transport firms, including Uber.", "matched_companies": ["UBER"]}
+    ]
+  },
+  "oracle_ambiguous": {
+    "companies": [{"ticker": "ORCL", "name": "ORACLE CORP", "exchange": "NYSE"}, {"ticker": "ORCL-PD", "name": "ORACLE CORP", "exchange": "NYSE"}],
+    "market_data": [],
+    "web_search": [],
+    "news_search": []
+  },
+  "coin_move": {
+    "companies": [{"ticker": "COIN", "name": "Coinbase Global, Inc.", "exchange": "Nasdaq"}],
+    "market_data": [{"id": "MKT-COIN", "type": "market_data", "ticker": "COIN", "company": "Coinbase Global, Inc.", "as_of_date": "2025-12-30", "period": "1mo", "metrics": {"latest_close": 180.0, "daily_pct_change": -1.5, "return_5d": -4.0, "return_20d": -2.0, "sma20": 184.0, "sma50": 188.0}, "recent_daily_closes": [{"date": "2025-12-23", "close": 187.5}, {"date": "2025-12-30", "close": 180.0}]}],
+    "web_search": [{"type": "web_result", "title": "Regulator announces new digital-asset custody framework", "source": "Evaluation fixture", "published_at": "2025-12-29T08:00:00Z", "url": "https://example.com/finsight-eval/coin-custody-framework", "snippet": "A regulator announced a digital-asset custody framework on December 29, 2025. The announcement does not name Coinbase or estimate company-specific financial effects.", "matched_companies": []}],
+    "news_search": [{"type": "news", "title": "Coinbase shares fall during a volatile week for crypto-linked equities", "source": "Evaluation fixture", "published_at": "2025-12-29T12:00:00Z", "url": "https://example.com/finsight-eval/coin-weekly-move", "snippet": "Coinbase shares were down during the week as digital-asset prices weakened. The report does not establish that one event caused the share move.", "matched_companies": ["COIN"]}]
+  },
+  "pltr_search": {
+    "companies": [{"ticker": "PLTR", "name": "Palantir Technologies Inc.", "exchange": "Nasdaq"}],
+    "market_data": [],
+    "web_search": [{"type": "web_result", "title": "Palantir announces expanded public-sector software contract", "source": "Evaluation fixture", "published_at": "2025-12-28T10:00:00Z", "url": "https://example.com/finsight-eval/pltr-contract", "snippet": "Palantir announced an expanded public-sector software contract on December 28, 2025. The report contains no options volume, implied volatility, or put-call data.", "matched_companies": ["PLTR"]}],
+    "news_search": []
+  }
+}
