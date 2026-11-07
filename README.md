@@ -58,6 +58,7 @@ The fundamental cards and business-mix charts use deterministic fixture values w
 - **Visual fixtures:** fundamental figures, fallback price history, scenario points, business-mix charts, and generic finance examples can come from deterministic fixtures.
 - **Model:** `ANTHROPIC_MODEL` selects Claude; `ANTHROPIC_API_KEY` stays on the backend. Claude API usage is billed separately from IDE subscriptions. `LLM_ENABLED=false` disables model calls and uses deterministic demo composition.
 - **Chat history:** saved only in browser `localStorage`; it is not synchronized or stored on the backend.
+- **Public API request limits:** the backend allows 10 chat stream requests and 60 company-search requests per minute per client IP. The in-memory limiter is intended for the single-task demo deployment; it resets on restart and is not shared across multiple tasks. Set `TRUST_PROXY_HEADERS=true` only when ECS security groups restrict the task to the ECS Gateway load balancer, so the limiter can use the load balancer's appended client IP.
 
 ## Requirements
 

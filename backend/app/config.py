@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 60
     research_timeout_seconds: float = 90
     chat_history_messages: int = 4
+    chat_requests_per_minute: int = 10
+    company_search_requests_per_minute: int = 60
+    trust_proxy_headers: bool = False
     langsmith_api_key: str = ""
     langsmith_project: str = "finsight-evals"
     langsmith_endpoint: str = "https://api.smith.langchain.com"
